@@ -89,11 +89,20 @@ import { EN } from "../game/strings/en";
 				>
 					{EN.startButton}
 				</button>
-				<div class="max-w-lg space-y-0.5 text-xs text-indigo-300">
-					<p>{EN.controlsHint}</p>
+				<p
+					class="mt-1 bg-gradient-to-r from-amber-300 via-pink-300 to-amber-300 bg-clip-text text-lg font-extrabold tracking-tight text-transparent sm:text-2xl"
+				>
+					{EN.instructionsHeadline}
+				</p>
+				<div
+					class="max-w-xl space-y-1.5 rounded-2xl bg-indigo-950/40 px-5 py-3.5 text-left text-sm font-medium text-indigo-100 ring-1 ring-white/10 sm:text-base"
+				>
 					<p>{EN.instructionsGoal}</p>
 					<p>{EN.instructionsHazards}</p>
-					<p class="hidden sm:block">{EN.instructionsExtras}</p>
+					<p>{EN.instructionsExtras}</p>
+					<p class="pt-1 text-xs text-indigo-300 sm:text-sm">
+						{EN.controlsHint}
+					</p>
 				</div>
 			</div>
 
