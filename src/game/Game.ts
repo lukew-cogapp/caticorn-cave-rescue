@@ -70,8 +70,6 @@ const WAYPOINT_TIME = 3;
  * stomp rather than a side hit, in pixels.
  */
 const STOMP_TOLERANCE = 14;
-/** How far the cage roof sits above the caticorn's collision box, in px. */
-const CAGE_HEIGHT_ABOVE = 20;
 /** Vertical tolerance for landing a stomp on a cage roof, in px. */
 const CAGE_STOMP_TOLERANCE = 18;
 
@@ -735,13 +733,12 @@ export class Game {
 			const cBox = cat.aabb();
 			if (!rectsOverlap(pBox, cBox)) continue;
 			if (cat.containment === "cage") {
-				// The cage rises above the caticorn box; accept a stomp landing on
-				// the cage roof (a bit higher than the caticorn's own top).
-				const cageTop = cBox.y - CAGE_HEIGHT_ABOVE;
+				// Caged box already covers the cage (taller aabb); a stomp is the
+				// player descending onto its roof, not bumping it from the side.
 				const fromAbove =
 					this.player.velY > 0 &&
-					pBox.y + pBox.h <= cageTop + CAGE_STOMP_TOLERANCE;
-				if (!fromAbove) continue; // bumping a cage from the side does nothing
+					pBox.y + pBox.h <= cBox.y + CAGE_STOMP_TOLERANCE;
+				if (!fromAbove) continue;
 				this.player.bounce(STOMP_BOUNCE); // little hop off the broken cage
 			}
 			cat.rescue();

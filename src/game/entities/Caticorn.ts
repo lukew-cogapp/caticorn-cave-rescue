@@ -33,7 +33,9 @@ export type Containment = "shackle" | "cage";
  */
 export class Caticorn extends Entity {
 	protected readonly halfWidth = 14;
-	protected readonly height = 30;
+	// Caged captives have a taller collision box so the player can land on (and
+	// stomp) the cage roof; shackled ones use the caticorn's own height.
+	protected readonly height: number;
 
 	/** True once collected by the player. */
 	rescued = false;
@@ -62,6 +64,9 @@ export class Caticorn extends Entity {
 	constructor(spec: CaticornSpec) {
 		super(new Container(), { x: spec.x, y: spec.y });
 		this.containment = spec.containment;
+		// Caged captives get a taller box (covers the cage) so a stomp on the
+		// cage roof registers; shackled ones keep the small caticorn box.
+		this.height = spec.containment === "cage" ? 52 : 30;
 		this.baseY = spec.y;
 
 		// Deterministic per-captive colour from the spawn position (no Math.random).
