@@ -155,6 +155,8 @@ function buildCaticorn(opts: {
 	skull?: boolean;
 	/** Optional little hat drawn above/between the ears (player only). */
 	hat?: HatId;
+	/** Draw a fuller head of hair (extra mane strands over the head). */
+	bigHair?: boolean;
 }): Container {
 	const c = new Container();
 	const g = new Graphics();
@@ -220,6 +222,23 @@ function buildCaticorn(opts: {
 			.stroke({ color: col, width: 3, cap: "round" });
 	}
 
+	// Big hair: a fuller swept mass over the head plus longer side locks, in the
+	// mane colours (used instead of a hat, e.g. Summer's pink hair).
+	if (opts.bigHair) {
+		const hair = opts.mane[0] ?? opts.body;
+		const hairDark = opts.mane[2] ?? hair;
+		// Rounded hair mass sitting on top of the head, between the ears.
+		g.ellipse(0, -52, 13, 8).fill(hair);
+		g.ellipse(-5, -54, 6, 5).fill(hairDark);
+		g.ellipse(6, -53, 5, 4).fill(hairDark);
+		// A few longer locks falling down each side of the face.
+		for (const lx of [-13, -11, 11, 13]) {
+			g.moveTo(lx, -48)
+				.quadraticCurveTo(lx * 1.25, -36, lx, -26)
+				.stroke({ color: hair, width: 3.5, cap: "round" });
+		}
+	}
+
 	// Horn.
 	addHorn(g, 0, -52);
 
@@ -283,6 +302,8 @@ const PLAYER_PALETTES: Record<
 		skull?: boolean;
 		/** Little hat drawn above the ears, distinct per hero. */
 		hat: HatId;
+		/** Draw a fuller head of hair instead of a hat. */
+		bigHair?: boolean;
 	}
 > = {
 	aubrey: {
@@ -297,12 +318,14 @@ const PLAYER_PALETTES: Record<
 		mane: ["#b6f55a", "#ff9ec4", "#d8ffb0", "#ff5d8f"],
 		hat: "acorn",
 	},
-	// Summer: an older caticorn with a full head of pink hair (cream coat).
+	// Summer: an older caticorn with a full head of pink hair (cream coat). No
+	// hat — the big pink hair is her look.
 	summer: {
 		body: "#f3e3d0",
 		bodyDark: "#d8c2a8",
 		mane: ["#ff8fc8", "#ff5da2", "#ffb3d9", "#ff6fb5"],
-		hat: "sunhat",
+		hat: "none",
+		bigHair: true,
 	},
 	// Hallie: goth caticorn with black hair, all-black clothes + a skull tee.
 	hallie: {
@@ -361,6 +384,7 @@ export function drawPlayer(variant: PlayerVariant): Container {
 		shirt: p.shirt,
 		skull: p.skull,
 		hat: p.hat,
+		bigHair: p.bigHair,
 	});
 }
 
