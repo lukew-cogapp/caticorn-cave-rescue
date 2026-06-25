@@ -193,6 +193,39 @@ export const LURKER_DROP_INTERVAL = 3.2;
 /** Gentle horizontal sway amplitude in px. */
 export const LURKER_SWAY = 10;
 
+// --- Monster: Luke (final-cave boss crawler) ---
+
+/** Luke's collision half-width in px (a touch wider than a normal crawler). */
+export const LUKE_HALF_WIDTH = 18;
+/**
+ * Luke's resting collision height in px. Taller than a crawler (28) so he reads
+ * as a caticorn-sized boss; still stompable by landing on his head.
+ */
+export const LUKE_HEIGHT = 44;
+/**
+ * Seconds in one full sword-swing cycle. The cycle is: rest, then wind-up
+ * (telegraph, sword extended but no widened hitbox), then the active slash
+ * (hitbox widened), then back to rest. dt-driven so it stays deterministic.
+ */
+export const LUKE_SWING_INTERVAL = 2.2;
+/**
+ * Seconds of wind-up before the slash goes live. The extended-sword pose shows
+ * during this window so the player is warned before the hitbox widens.
+ */
+export const LUKE_SWING_WINDUP = 0.35;
+/**
+ * Seconds the slash hitbox stays widened (the only window Luke's sword can hit).
+ * After this the sword retracts and the cycle counts down to the next swing.
+ */
+export const LUKE_SWING_ACTIVE = 0.4;
+/**
+ * Extra reach (px) added to Luke's collision box on his facing side while the
+ * slash is active — the sword's danger zone. Only applied during the active
+ * window, so a stationary or winding-up Luke is safe to approach from the side
+ * (still never safe to walk into; this is the sword overreach).
+ */
+export const LUKE_SWORD_REACH = 30;
+
 // --- Particles ---
 
 /** Hard cap on live particles so bursts can never flood the scene. */
@@ -265,6 +298,11 @@ export const AMBIENT_PROFILES: Record<AmbientKind, AmbientProfile> = {
 	fog: { dir: 1, speed: 6, sway: 40, alpha: 0.6 },
 	gemsparkle: { dir: 0, speed: 8, sway: 6, alpha: 0.7 },
 	spore: { dir: -1, speed: 10, sway: 18, alpha: 0.7 },
+	confetti: { dir: 1, speed: 34, sway: 30, alpha: 0.9 }, // disco: falling colour flecks
+	bubble: { dir: -1, speed: 16, sway: 20, alpha: 0.6 }, // tropical: rising bubbles
+	bat: { dir: 0, speed: 14, sway: 34, alpha: 0.7 }, // halloween: drifting bats
+	pixel: { dir: -1, speed: 9, sway: 10, alpha: 0.6 }, // minecraft: floating block dust
+	sprinkle: { dir: 1, speed: 28, sway: 24, alpha: 0.9 }, // candy: falling sprinkles
 };
 
 /** Number of themed ambient drifters kept alive in the world per level. */

@@ -1,5 +1,6 @@
 import { Container, Graphics, Text } from "pixi.js";
 import { getThemePack, type ThemeStyle } from "../level/themes";
+import { drawLuke } from "./characters";
 import { tint } from "./util";
 
 /**
@@ -202,16 +203,32 @@ function addMonsterFlourish(
  * never obscures the eyes, fangs, or silhouette that signal the creature type.
  * All decoration uses only fixed geometry — no `Math.random` / `Date.now`.
  *
+ * `"luke"` is the final-cave boss: a human likeness drawn by {@link drawLuke}.
+ * Its container holds BOTH poses as children — child 0 the rest pose (sword
+ * upright), child 1 the swing pose (sword extended) — so the Luke entity can
+ * toggle their visibility per frame without rebuilding. `accent`/`style` are
+ * ignored for Luke so his signature look (yellow jacket, beard, glasses, sword)
+ * stays intact.
+ *
  * @param kind - Which baddie to draw.
  * @param accent - Optional theme accent `#rrggbb` to recolour the body toward.
  * @param style - Optional cave theme driving a subtle visual flourish.
  * @returns A Pixi {@link Container} ready to position at a world point.
  */
 export function drawMonster(
-	kind: "crawler" | "bat" | "lurker",
+	kind: "crawler" | "bat" | "lurker" | "luke",
 	accent?: string,
 	style?: ThemeStyle,
 ): Container {
+	if (kind === "luke") {
+		// Boss: bundle both poses so the entity toggles them cheaply (child 0 rest,
+		// child 1 swing). Accent/style left off to preserve his recognisable look.
+		const c = new Container();
+		c.addChild(drawLuke(false));
+		c.addChild(drawLuke(true));
+		return c;
+	}
+
 	const c = new Container();
 	const g = new Graphics();
 	// Body fills blend a fair way toward the accent; outlines a touch less.

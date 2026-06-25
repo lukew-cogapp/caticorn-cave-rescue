@@ -1,11 +1,19 @@
 import type { DecorKind } from "../types";
 import type { ThemePack } from "./theme-pack";
+import { beachPack } from "./themes/beach";
 import { blossomPack } from "./themes/blossom";
+import { candyPack } from "./themes/candy";
+import { catPack } from "./themes/cat";
 import { cryptPack } from "./themes/crypt";
 import { crystalPack } from "./themes/crystal";
+import { discoPack } from "./themes/disco";
 import { grovePack } from "./themes/grove";
+import { halloweenPack } from "./themes/halloween";
 import { icePack } from "./themes/ice";
+import { marioPack } from "./themes/mario";
+import { minecraftPack } from "./themes/minecraft";
 import { moltenPack } from "./themes/molten";
+import { tropicalPack } from "./themes/tropical";
 
 /** Theme-specific ambient particle that drifts through the cave for atmosphere. */
 export type AmbientKind =
@@ -14,7 +22,12 @@ export type AmbientKind =
 	| "snow"
 	| "fog"
 	| "spore"
-	| "ember";
+	| "ember"
+	| "confetti"
+	| "bubble"
+	| "bat"
+	| "pixel"
+	| "sprinkle";
 
 /**
  * Visual identity discriminant for a cave. Drives theme-specific background
@@ -28,7 +41,15 @@ export type ThemeStyle =
 	| "ice"
 	| "crypt"
 	| "grove"
-	| "molten";
+	| "molten"
+	| "disco"
+	| "tropical"
+	| "beach"
+	| "halloween"
+	| "cat"
+	| "minecraft"
+	| "mario"
+	| "candy";
 
 /**
  * A bespoke cave theme's metadata: a strong visual identity, not just a
@@ -78,6 +99,14 @@ export const THEME_PACKS: ThemePack[] = [
 	cryptPack,
 	grovePack,
 	moltenPack,
+	discoPack,
+	tropicalPack,
+	beachPack,
+	halloweenPack,
+	catPack,
+	minecraftPack,
+	marioPack,
+	candyPack,
 ];
 
 /** Fast `ThemeStyle` → {@link ThemePack} lookup for the draw dispatchers. */

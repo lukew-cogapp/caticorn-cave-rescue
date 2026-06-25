@@ -114,7 +114,7 @@ export function buildLevels(baseSeed = 1000): Level[] {
 		themeStyle: themes[i].style,
 	}));
 
-	return configs.map((c, i) => makeLevel(c, i, baseSeed));
+	return configs.map((c, i) => makeLevel(c, i, baseSeed, configs.length));
 }
 
 /**
@@ -144,7 +144,12 @@ function platformDrop(style: LevelConfig["style"], i: number): number {
  * Build one level: lay out rescue platforms and ground, then place hazards and
  * decor under fairness rules, then assert/repair reachability.
  */
-function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
+function makeLevel(
+	c: LevelConfig,
+	index: number,
+	baseSeed: number,
+	totalLevels: number,
+): Level {
 	const rng = makeRng(baseSeed + index * 97);
 
 	// Horizontal spacing between rescue platforms is capped so the run between
@@ -235,6 +240,17 @@ function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
 	}
 
 	const monsters = placeMonsters(c, worldWidth, groundSegs, rng);
+	// Final cave only: promote one ground monster to the "luke" boss. Prefer
+	// swapping a crawler (so counts/positions/reachability are untouched — luke
+	// walks a platform exactly like a crawler); fall back to the first ground
+	// monster if no crawler was placed. The lurker is never touched, so the
+	// "later levels keep a lurker" invariant holds.
+	if (index === totalLevels - 1) {
+		const swapIdx = monsters.findIndex((m) => m.kind === "crawler");
+		const target =
+			swapIdx >= 0 ? swapIdx : monsters.findIndex((m) => m.kind !== "lurker");
+		if (target >= 0) monsters[target] = { ...monsters[target], kind: "luke" };
+	}
 	// Poops are no longer authored into levels: they only come from ceiling
 	// lurkers (so early levels without a lurker have none).
 	const poops: PoopSpec[] = [];

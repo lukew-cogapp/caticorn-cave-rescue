@@ -3,11 +3,17 @@ import { drawMonster } from "../art";
 import {
 	BAT_BOB_AMPLITUDE,
 	BAT_BOB_SPEED,
+	LUKE_HALF_WIDTH,
+	LUKE_HEIGHT,
+	LUKE_SWING_ACTIVE,
+	LUKE_SWING_INTERVAL,
+	LUKE_SWING_WINDUP,
+	LUKE_SWORD_REACH,
 	LURKER_DROP_INTERVAL,
 	LURKER_SWAY,
 } from "../const";
 import type { ThemeStyle } from "../level/themes";
-import type { MonsterSpec, Platform, WorldContext } from "../types";
+import type { MonsterSpec, Platform, Rect, WorldContext } from "../types";
 import { Entity } from "./Entity";
 
 /**
@@ -94,8 +100,8 @@ export abstract class Monster extends Entity {
  * no vertical motion.
  */
 export class Crawler extends Monster {
-	protected readonly halfWidth = 16;
-	protected readonly height = 28;
+	protected readonly halfWidth: number = 16;
+	protected readonly height: number = 28;
 
 	update(ctx: WorldContext): void {
 		if (this.isDead()) {
@@ -113,7 +119,7 @@ export class Crawler extends Monster {
 	}
 
 	/** True if a platform top supports the spot just ahead of the crawler. */
-	private groundAhead(platforms: Platform[]): boolean {
+	protected groundAhead(platforms: Platform[]): boolean {
 		const probeX = this.pos.x + this.dir * (this.halfWidth + 4);
 		const footY = this.pos.y;
 		for (const p of platforms) {
@@ -122,6 +128,97 @@ export class Crawler extends Monster {
 			if (onTop && withinX) return true;
 		}
 		return false;
+	}
+}
+
+/**
+ * Final-cave boss. Walks and turns at ledges exactly like a {@link Crawler}
+ * (same patrol + ground-probe), but is taller (caticorn-sized) and periodically
+ * swings a sword.
+ *
+ * The swing runs on a deterministic, dt-driven cycle of length
+ * {@link LUKE_SWING_INTERVAL}: rest, then a {@link LUKE_SWING_WINDUP} wind-up
+ * (sword drawn extended as a telegraph, but the hitbox is still normal), then a
+ * {@link LUKE_SWING_ACTIVE} active slash (hitbox widened by
+ * {@link LUKE_SWORD_REACH} on his facing side — the only window the sword can
+ * hit), then back to rest. The extended-sword pose covers wind-up + active so
+ * the widened hitbox is always telegraphed, keeping it fair. Stompable on the
+ * head like any monster; side/sword contact damages the player.
+ */
+export class Luke extends Crawler {
+	protected override readonly halfWidth = LUKE_HALF_WIDTH;
+	protected override readonly height = LUKE_HEIGHT;
+
+	/** Time accumulated within the current swing cycle (seconds, dt-driven). */
+	private swingClock = 0;
+	/** Rest pose (sword upright); visible except during wind-up + active. */
+	private readonly restView: Container;
+	/** Swing pose (sword extended); visible during wind-up + active. */
+	private readonly swingView: Container;
+
+	constructor(view: Container, spec: MonsterSpec) {
+		super(view, spec);
+		// The container passed in holds the two prebuilt poses (see createMonster):
+		// child 0 = rest, child 1 = swing. Hold references so we can toggle cheaply.
+		this.restView = view.children[0] as Container;
+		this.swingView = view.children[1] as Container;
+		this.swingView.visible = false;
+	}
+
+	/** True once the wind-up has elapsed and the slash hitbox is live. */
+	private get swingActive(): boolean {
+		const windupStart =
+			LUKE_SWING_INTERVAL - LUKE_SWING_WINDUP - LUKE_SWING_ACTIVE;
+		const activeStart = windupStart + LUKE_SWING_WINDUP;
+		return this.swingClock >= activeStart;
+	}
+
+	/** True during wind-up + active — the window the sword is drawn extended. */
+	private get swingTelegraph(): boolean {
+		const windupStart =
+			LUKE_SWING_INTERVAL - LUKE_SWING_WINDUP - LUKE_SWING_ACTIVE;
+		return this.swingClock >= windupStart;
+	}
+
+	override update(ctx: WorldContext): void {
+		if (this.isDead()) {
+			this.animateDeath(ctx.dt);
+			return;
+		}
+		// Identical crawler movement: turn at ledges, then patrol.
+		if (!this.groundAhead(ctx.level.platforms)) {
+			this.dir = this.dir === 1 ? -1 : 1;
+			this.view.scale.x = this.dir;
+		}
+		this.patrol(ctx.dt);
+
+		// Advance the deterministic swing cycle and swap the pose at the telegraph.
+		this.swingClock += ctx.dt;
+		if (this.swingClock >= LUKE_SWING_INTERVAL)
+			this.swingClock -= LUKE_SWING_INTERVAL;
+		const telegraph = this.swingTelegraph;
+		this.restView.visible = !telegraph;
+		this.swingView.visible = telegraph;
+
+		this.syncView();
+	}
+
+	/**
+	 * Collision box. Identical to a crawler's at rest, but during the active
+	 * slash it widens on Luke's facing side by {@link LUKE_SWORD_REACH} so the
+	 * extended sword can strike the player.
+	 */
+	override aabb(): Rect {
+		const base = super.aabb();
+		if (!this.swingActive) return base;
+		// `dir` is +1 facing right, -1 facing left; extend the box on that side.
+		if (this.dir === 1) {
+			base.w += LUKE_SWORD_REACH;
+		} else {
+			base.x -= LUKE_SWORD_REACH;
+			base.w += LUKE_SWORD_REACH;
+		}
+		return base;
 	}
 }
 
@@ -233,6 +330,8 @@ export function createMonster(
 			return new Bat(view, spec);
 		case "lurker":
 			return new Lurker(view, spec);
+		case "luke":
+			return new Luke(view, spec);
 		default:
 			return new Crawler(view, spec);
 	}

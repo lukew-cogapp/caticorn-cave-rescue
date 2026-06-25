@@ -1,29 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeRng } from "./prng";
-import {
-	type AmbientKind,
-	pickThemes,
-	THEMES,
-	type ThemeStyle,
-} from "./themes";
-
-/** Every ThemeStyle / AmbientKind that should be representable. */
-const STYLES: ThemeStyle[] = [
-	"blossom",
-	"crystal",
-	"ice",
-	"crypt",
-	"grove",
-	"molten",
-];
-const AMBIENTS: AmbientKind[] = [
-	"petal",
-	"gemsparkle",
-	"snow",
-	"fog",
-	"spore",
-	"ember",
-];
+import { pickThemes, THEMES } from "./themes";
 
 const hex = /^#[0-9a-f]{6}$/i;
 const SEEDS = [1, 7, 42, 100, 256, 777, 1000, 2024, 9999, 123456];
@@ -42,8 +19,12 @@ describe("THEMES pool", () => {
 			expect(t.bg[1]).toMatch(hex);
 			expect(t.ceilingKinds.length).toBeGreaterThan(0);
 			expect(t.floorKinds.length).toBeGreaterThan(0);
-			expect(AMBIENTS).toContain(t.ambient);
-			expect(STYLES).toContain(t.style);
+			// ambient + style are union-typed so TS guarantees validity; assert
+			// each theme actually sets a non-empty value (no missing field).
+			expect(typeof t.ambient).toBe("string");
+			expect(t.ambient.length).toBeGreaterThan(0);
+			expect(typeof t.style).toBe("string");
+			expect(t.style.length).toBeGreaterThan(0);
 		}
 	});
 

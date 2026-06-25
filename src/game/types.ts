@@ -51,9 +51,11 @@ export interface MonsterSpec extends Vec2 {
 	speed: number;
 	/**
 	 * "crawler" walks a platform; "bat" floats and bobs vertically; "lurker"
-	 * clings to the ceiling, drifts slowly toward the player, and drops poop.
+	 * clings to the ceiling, drifts slowly toward the player, and drops poop;
+	 * "luke" is a taller boss crawler that walks like a crawler but periodically
+	 * swings a sword (a telegraphed, widened side hitbox).
 	 */
-	kind: "crawler" | "bat" | "lurker";
+	kind: "crawler" | "bat" | "lurker" | "luke";
 }
 
 /** A decorative cave element, purely visual. Floor/wall kinds sit on ground or

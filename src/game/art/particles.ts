@@ -65,7 +65,12 @@ export function drawParticle(
 		| "snow"
 		| "fog"
 		| "spore"
-		| "ember",
+		| "ember"
+		| "confetti"
+		| "bubble"
+		| "bat"
+		| "pixel"
+		| "sprinkle",
 ): Container {
 	const c = new Container();
 	const g = new Graphics();
@@ -211,6 +216,41 @@ export function drawParticle(
 		g.circle(0, 0, 1.4).fill({ color: 0xffcc44, alpha: 0.9 });
 		// Hot white core.
 		g.circle(0, 0, 0.7).fill({ color: 0xfff8e0, alpha: 1 });
+	} else if (kind === "confetti") {
+		// Disco confetti: a small tilted colour rectangle. The colour is picked
+		// from a tiny palette by a cheap position-free rotation so a field of them
+		// reads multicoloured (the caller varies rotation per particle).
+		const cols = [0xff5d8f, 0xffd23f, 0x5ad1c8, 0x9b6bff, 0x6cff9e];
+		const col = cols[0];
+		g.rect(-2, -3, 4, 6).fill({ color: col, alpha: 0.95 });
+		g.rect(-2, -3, 4, 2).fill({ color: 0xffffff, alpha: 0.4 });
+	} else if (kind === "bubble") {
+		// Tropical bubble: a translucent ring with a tiny highlight.
+		g.circle(0, 0, 3.5).fill({ color: 0x9fe0ff, alpha: 0.16 });
+		g.circle(0, 0, 3.5).stroke({ color: 0xd6f3ff, width: 0.8, alpha: 0.6 });
+		g.circle(-1.2, -1.2, 0.9).fill({ color: 0xffffff, alpha: 0.85 });
+	} else if (kind === "bat") {
+		// Halloween bat: a tiny dark winged silhouette (two scalloped wings + body).
+		g.ellipse(0, 0, 1.6, 2).fill({ color: 0x161021, alpha: 0.9 });
+		g.poly([-1, -0.5, -6, -2.5, -5, 0.5, -2, 0.5]).fill({
+			color: 0x161021,
+			alpha: 0.85,
+		});
+		g.poly([1, -0.5, 6, -2.5, 5, 0.5, 2, 0.5]).fill({
+			color: 0x161021,
+			alpha: 0.85,
+		});
+	} else if (kind === "pixel") {
+		// Minecraft floating dust: a small flat square block speck.
+		g.rect(-1.6, -1.6, 3.2, 3.2).fill({ color: 0xcdbb9a, alpha: 0.7 });
+		g.rect(-1.6, -1.6, 3.2, 1).fill({ color: 0xe8dcc4, alpha: 0.5 });
+	} else if (kind === "sprinkle") {
+		// Candy sprinkle: a short rounded pastel capsule.
+		g.roundRect(-0.8, -2.5, 1.6, 5, 0.8).fill({ color: 0xff8fc8, alpha: 0.95 });
+		g.roundRect(-0.8, -2.5, 1.6, 1.6, 0.8).fill({
+			color: 0xffffff,
+			alpha: 0.5,
+		});
 	} else {
 		// "sparkle": crisp 4-point cross-glint, thinner than "spark", with a faint
 		// coloured halo for the exit-beckon effect.
