@@ -251,4 +251,99 @@ export class Chiptune {
 		this.note(ctx, freq("A3"), 0.0, 0.12, "square", 0.7);
 		this.note(ctx, freq("D#3"), 0.12, 0.13, "square", 0.7);
 	}
+
+	/**
+	 * Schedule a note whose pitch glides from `fromHz` to `toHz` over its
+	 * duration (a portamento sweep), for boings and zips. Same click-safe
+	 * envelope as {@link note}.
+	 */
+	private sweep(
+		ctx: AudioContext,
+		fromHz: number,
+		toHz: number,
+		start: number,
+		duration: number,
+		wave: Wave,
+		gain: number,
+	): void {
+		const t = ctx.currentTime + start;
+		const osc = ctx.createOscillator();
+		const env = ctx.createGain();
+		osc.type = wave;
+		osc.frequency.setValueAtTime(fromHz, t);
+		osc.frequency.exponentialRampToValueAtTime(Math.max(1, toHz), t + duration);
+		const attack = Math.min(0.01, duration * 0.2);
+		const peak = gain * MASTER_GAIN;
+		env.gain.setValueAtTime(0, t);
+		env.gain.linearRampToValueAtTime(peak, t + attack);
+		env.gain.linearRampToValueAtTime(0.0001, t + duration);
+		osc.connect(env);
+		env.connect(ctx.destination);
+		osc.start(t);
+		osc.stop(t + duration + 0.02);
+	}
+
+	/**
+	 * Light blip on jump: a quick upward triangle chirp. Kept quiet + short so
+	 * it never gets annoying when spammed. No-op without an AudioContext.
+	 */
+	jump(): void {
+		const ctx = this.getCtx();
+		if (!ctx) {
+			return;
+		}
+		this.sweep(ctx, freq("E5"), freq("A5"), 0, 0.09, "triangle", 0.35);
+	}
+
+	/**
+	 * Punchy thunk when stomping a monster or a cage: a fast downward square
+	 * sweep with a click of body. No-op without an AudioContext.
+	 */
+	stomp(): void {
+		const ctx = this.getCtx();
+		if (!ctx) {
+			return;
+		}
+		this.sweep(ctx, freq("G4"), freq("C3"), 0, 0.14, "square", 0.55);
+		this.note(ctx, freq("C3"), 0, 0.06, "triangle", 0.5);
+	}
+
+	/**
+	 * Springy "boing" when bouncing off a trampoline: an upward triangle sweep
+	 * with a wobble feel from a layered square. No-op without an AudioContext.
+	 */
+	trampoline(): void {
+		const ctx = this.getCtx();
+		if (!ctx) {
+			return;
+		}
+		this.sweep(ctx, freq("C4"), freq("C6"), 0, 0.22, "triangle", 0.5);
+		this.sweep(ctx, freq("G4"), freq("G5"), 0.04, 0.16, "square", 0.18);
+	}
+
+	/**
+	 * Soft healing shimmer when a flute is collected: a gentle rising perfect
+	 * fifth with an octave sparkle. No-op without an AudioContext.
+	 */
+	flute(): void {
+		const ctx = this.getCtx();
+		if (!ctx) {
+			return;
+		}
+		this.note(ctx, freq("G5"), 0.0, 0.16, "triangle", 0.4);
+		this.note(ctx, freq("D6"), 0.08, 0.18, "triangle", 0.4);
+		this.note(ctx, freq("G6"), 0.12, 0.2, "square", 0.15);
+	}
+
+	/**
+	 * Low squelch when stepping in poop: a short detuned downward blob.
+	 * No-op without an AudioContext.
+	 */
+	squish(): void {
+		const ctx = this.getCtx();
+		if (!ctx) {
+			return;
+		}
+		this.sweep(ctx, freq("D3"), freq("A2"), 0, 0.16, "sawtooth", 0.3);
+	}
 }
