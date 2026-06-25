@@ -103,8 +103,15 @@ export class Game {
 	private trampolines: Rect[] = [];
 	/** Lethal spike collision boxes (stalactites + stalagmites). */
 	private spikes: Rect[] = [];
-	/** Flute pickups (extra life): sprite + box + collected flag + bob phase. */
-	private flutes: { view: Container; box: Rect; taken: boolean }[] = [];
+	/** Flute pickups (extra life): sprite + collision box + drift state. */
+	private flutes: {
+		view: Container;
+		box: Rect;
+		taken: boolean;
+		homeX: number;
+		homeY: number;
+		phase: number;
+	}[] = [];
 
 	/** Active death animation: ghost sprite + remaining time, or null. */
 	private death: { ghost: Container; t: number } | null = null;
@@ -263,8 +270,9 @@ export class Game {
 			this.trampolines.push({ x: spec.x - 30, y: spec.y - 24, w: 60, h: 24 });
 		}
 
-		// Flutes: floating extra-life pickups.
-		for (const spec of this.level.flutes) {
+		// Flutes: floating extra-life pickups. They drift in a lazy loop around
+		// their home point (see the tick) so they're a little harder to grab.
+		this.level.flutes.forEach((spec, i) => {
 			const g = drawFlute();
 			g.x = spec.x;
 			g.y = spec.y;
@@ -273,8 +281,12 @@ export class Game {
 				view: g,
 				box: { x: spec.x - 14, y: spec.y - 36, w: 28, h: 38 },
 				taken: false,
+				homeX: spec.x,
+				homeY: spec.y,
+				// Stagger starting phase per flute so they don't move in lockstep.
+				phase: i * 1.7,
 			});
-		}
+		});
 
 		// Exit gate.
 		this.exit = Exit.create(this.level.exit);
@@ -453,10 +465,19 @@ export class Game {
 			}
 		}
 
-		// Flutes: bob gently; collecting one grants an extra life.
+		// Flutes drift in a lazy Lissajous loop around their home point so they
+		// dodge a lazy grab; the collision box tracks the sprite.
 		for (const flute of this.flutes) {
 			if (flute.taken) continue;
-			flute.view.y += Math.sin(this.dayPhase * 3 + flute.box.x) * 0.4;
+			flute.phase += dt;
+			const dx = Math.sin(flute.phase * 1.3) * 26;
+			const dy = Math.cos(flute.phase * 0.9) * 18;
+			const fx = flute.homeX + dx;
+			const fy = flute.homeY + dy;
+			flute.view.x = fx;
+			flute.view.y = fy;
+			flute.box.x = fx - 14;
+			flute.box.y = fy - 36;
 			if (rectsOverlap(pBox, flute.box)) {
 				flute.taken = true;
 				flute.view.visible = false;
