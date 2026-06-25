@@ -265,16 +265,33 @@ function makeLevel(
 	}
 
 	const monsters = placeMonsters(c, worldWidth, groundSegs, rng);
-	// Final cave only: promote one ground monster to the "luke" boss. Prefer
-	// swapping a crawler (so counts/positions/reachability are untouched — luke
-	// walks a platform exactly like a crawler); fall back to the first ground
-	// monster if no crawler was placed. The lurker is never touched, so the
-	// "later levels keep a lurker" invariant holds.
+	// Final cave only: promote one ground monster to the "luke" boss AND station
+	// him GUARDING THE EXIT — he paces a short patrol just in front of the exit
+	// platform so the player must get past him to finish. Prefer swapping a
+	// crawler (luke walks exactly like one); fall back to the first non-lurker.
+	// The lurker is never touched, so the "later levels keep a lurker" invariant
+	// holds, and his new patrol stays on solid ground over the last segment.
 	if (index === totalLevels - 1) {
 		const swapIdx = monsters.findIndex((m) => m.kind === "crawler");
 		const target =
 			swapIdx >= 0 ? swapIdx : monsters.findIndex((m) => m.kind !== "lurker");
-		if (target >= 0) monsters[target] = { ...monsters[target], kind: "luke" };
+		if (target >= 0) {
+			// Guard post: a touch left of the exit, on the final ground segment,
+			// with a short patrol range so he stays in front of the gate.
+			const lastSeg = groundSegs[groundSegs.length - 1];
+			const guardRange = 70;
+			const guardX = Math.max(
+				lastSeg.x + guardRange + 10,
+				worldWidth - 60 - 90,
+			);
+			monsters[target] = {
+				...monsters[target],
+				kind: "luke",
+				x: guardX,
+				y: GROUND_Y,
+				range: guardRange,
+			};
+		}
 	}
 	// Poops are no longer authored into levels: they only come from ceiling
 	// lurkers (so early levels without a lurker have none).
