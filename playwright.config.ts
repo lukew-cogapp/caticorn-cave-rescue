@@ -26,7 +26,19 @@ export default defineConfig({
 	projects: [
 		{
 			name: "chromium",
-			use: { ...devices["Desktop Chrome"] },
+			use: {
+				...devices["Desktop Chrome"],
+				// Enable WebGL in headless Chromium via the SwiftShader software
+				// renderer.  Without this flag Pixi's WebGL context creation fails
+				// in CI and the boot skeleton never clears.
+				launchOptions: {
+					args: [
+						"--use-gl=swiftshader",
+						"--enable-webgl",
+						"--ignore-gpu-blocklist",
+					],
+				},
+			},
 		},
 	],
 
