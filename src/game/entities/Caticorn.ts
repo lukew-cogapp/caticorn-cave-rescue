@@ -1,5 +1,10 @@
 import { Container } from "pixi.js";
-import { drawCage, drawCaticorn, drawShackle } from "../art";
+import {
+	CATICORN_PALETTE_COUNT,
+	drawCage,
+	drawCaticorn,
+	drawShackle,
+} from "../art";
 import type { CaticornSpec, WorldContext } from "../types";
 import { Entity } from "./Entity";
 
@@ -47,12 +52,22 @@ export class Caticorn extends Entity {
 	/** Accumulated phase, advanced by dt each frame. */
 	private phase = 0;
 
+	/**
+	 * Palette index into the rescuable-caticorn pool. Derived deterministically
+	 * from the spawn x so captives in a level vary in colour, and reused for the
+	 * happy redraw so a caticorn keeps its colour when freed.
+	 */
+	private readonly paletteIndex: number;
+
 	constructor(spec: CaticornSpec) {
 		super(new Container(), { x: spec.x, y: spec.y });
 		this.containment = spec.containment;
 		this.baseY = spec.y;
 
-		this.cat = drawCaticorn();
+		// Deterministic per-captive colour from the spawn position (no Math.random).
+		this.paletteIndex = Math.floor(spec.x) % CATICORN_PALETTE_COUNT;
+
+		this.cat = drawCaticorn(false, this.paletteIndex);
 		this.cat.scale.set(CATICORN_SCALE);
 		this.view.addChild(this.cat);
 
@@ -99,7 +114,7 @@ export class Caticorn extends Entity {
 		for (const child of this.cat.removeChildren()) {
 			child.destroy();
 		}
-		const happy = drawCaticorn(true);
+		const happy = drawCaticorn(true, this.paletteIndex);
 		this.cat.addChild(...happy.removeChildren());
 		// Break the binding: it fades out over the next moments.
 		if (this.binding) {
