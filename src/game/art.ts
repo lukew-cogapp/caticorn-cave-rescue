@@ -1,4 +1,5 @@
 import { Container, Graphics, Text } from "pixi.js";
+import { EN } from "./strings/en";
 import type { Decor } from "./types";
 import { GAME_HEIGHT, PLAYER_H, PLAYER_W } from "./types";
 
@@ -224,10 +225,22 @@ const PLAYER_PALETTES: Record<
  */
 export const CHARACTERS: { id: PlayerVariant; name: string; color: string }[] =
 	[
-		{ id: "aubrey", name: "Aubrey", color: PLAYER_PALETTES.aubrey.body },
-		{ id: "quinn", name: "Quinn", color: PLAYER_PALETTES.quinn.body },
-		{ id: "summer", name: "Summer", color: PLAYER_PALETTES.summer.mane[0] },
-		{ id: "hallie", name: "Hallie", color: "#c9c2d6" },
+		{
+			id: "aubrey",
+			name: EN.characters.aubrey,
+			color: PLAYER_PALETTES.aubrey.body,
+		},
+		{
+			id: "quinn",
+			name: EN.characters.quinn,
+			color: PLAYER_PALETTES.quinn.body,
+		},
+		{
+			id: "summer",
+			name: EN.characters.summer,
+			color: PLAYER_PALETTES.summer.mane[0],
+		},
+		{ id: "hallie", name: EN.characters.hallie, color: "#c9c2d6" },
 	];
 
 /**

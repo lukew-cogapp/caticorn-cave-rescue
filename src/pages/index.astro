@@ -1,11 +1,9 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { EN } from "../game/strings/en";
 ---
 
-<Layout
-	title="Caticorn Cave Rescue"
-	description="Save the caticorns trapped in the cave! A PixiJS platformer."
->
+<Layout title={EN.title} description={EN.metaDescription}>
 	<main class="mx-auto max-w-6xl px-6 py-8">
 		<header class="flex flex-col items-center text-center">
 			<canvas
@@ -17,25 +15,12 @@ import Layout from "../layouts/Layout.astro";
 			<h1
 				class="mt-1 text-3xl font-extrabold tracking-tight text-stone-900 sm:text-4xl"
 			>
-				Caticorn Cave Rescue
+				{EN.title}
 			</h1>
-			<p class="mt-2 text-stone-600">
-				Free every caticorn, then reach the glowing exit. Mind the pits!
-			</p>
+			<p class="mt-2 text-stone-600">{EN.tagline}</p>
 		</header>
 
-		<!-- HUD -->
-		<div
-			id="hud"
-			class="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-semibold text-stone-700"
-		>
-			<span>Level <b id="hud-level">1</b>/<span id="hud-total">4</span></span>
-			<span id="hud-name" class="text-amber-700">The Shallows</span>
-			<span>Rescued <b id="hud-rescued">0</b>/<span id="hud-toRescue">2</span></span>
-			<span>Lives <b id="hud-lives">3</b></span>
-		</div>
-
-		<!-- Game canvas -->
+		<!-- Game canvas (HUD is rendered inside the canvas) -->
 		<div
 			id="game-stage"
 			tabindex="-1"
@@ -56,10 +41,10 @@ import Layout from "../layouts/Layout.astro";
 					class="h-20 w-20 drop-shadow-lg"
 					aria-hidden="true"></canvas>
 				<h2 class="mt-2 text-2xl font-extrabold tracking-tight sm:text-4xl">
-					Caticorn Cave Rescue
+					{EN.title}
 				</h2>
 				<p class="mt-1 text-sm text-indigo-200 sm:text-base">
-					Choose your hero
+					{EN.chooseHero}
 				</p>
 
 				<div
@@ -75,11 +60,9 @@ import Layout from "../layouts/Layout.astro";
 					disabled
 					class="mt-6 rounded-full bg-amber-400 px-8 py-3 text-lg font-extrabold text-stone-900 shadow-lg transition enabled:hover:scale-105 enabled:hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
 				>
-					Start rescue
+					{EN.startButton}
 				</button>
-				<p class="mt-3 text-xs text-indigo-300">
-					Move: Arrow keys / WASD &nbsp;·&nbsp; Jump: Up / Space / W
-				</p>
+				<p class="mt-3 text-xs text-indigo-300">{EN.controlsHint}</p>
 			</div>
 
 			<!-- Fullscreen toggle -->
@@ -89,7 +72,7 @@ import Layout from "../layouts/Layout.astro";
 				aria-label="Toggle fullscreen"
 				class="absolute right-3 top-3 z-10 rounded-lg bg-stone-900/70 px-3 py-1.5 text-sm font-semibold text-amber-50 backdrop-blur transition hover:bg-stone-900"
 			>
-				⛶ Fullscreen
+				{EN.fullscreen}
 			</button>
 
 			<!-- Overlay for win/lose -->
@@ -103,7 +86,7 @@ import Layout from "../layouts/Layout.astro";
 					id="restart-btn"
 					class="mt-5 rounded-full bg-amber-400 px-6 py-2 font-bold text-stone-900 transition hover:bg-amber-300"
 				>
-					Play again
+					{EN.playAgain}
 				</button>
 			</div>
 
@@ -117,29 +100,26 @@ import Layout from "../layouts/Layout.astro";
 					<button
 						id="btn-left"
 						type="button"
-						aria-label="Move left"
+						aria-label={EN.moveLeft}
 						class="flex h-16 w-16 items-center justify-center rounded-full bg-stone-900/55 text-2xl font-bold text-amber-50 backdrop-blur active:bg-stone-900/80"
 					>‹</button>
 					<button
 						id="btn-right"
 						type="button"
-						aria-label="Move right"
+						aria-label={EN.moveRight}
 						class="flex h-16 w-16 items-center justify-center rounded-full bg-stone-900/55 text-2xl font-bold text-amber-50 backdrop-blur active:bg-stone-900/80"
 					>›</button>
 				</div>
 				<button
 					id="btn-jump"
 					type="button"
-					aria-label="Jump"
+					aria-label={EN.jump}
 					class="pointer-events-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-400/80 text-sm font-extrabold text-stone-900 backdrop-blur active:bg-amber-300"
 				>JUMP</button>
 			</div>
 		</div>
 
-		<p class="mt-4 text-center text-sm text-stone-500">
-			<b>Controls:</b> Arrow keys / WASD to move, Up / Space / W to jump.
-			Bounce on trampolines, dodge baddies, avoid the poop!
-		</p>
+		<p class="mt-4 text-center text-sm text-stone-500">{EN.controlsFooter}</p>
 	</main>
 </Layout>
 
@@ -147,6 +127,7 @@ import Layout from "../layouts/Layout.astro";
 	import { Application } from "pixi.js";
 	import { drawPlayer, type PlayerVariant } from "../game/art";
 	import { bootGame, CHARACTERS, type HudState } from "../game/caticorn";
+	import { EN } from "../game/strings/en";
 
 	const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
 	const stage = document.getElementById("game-stage") as HTMLDivElement;
@@ -159,16 +140,9 @@ import Layout from "../layouts/Layout.astro";
 	const cardsWrap = document.getElementById("char-cards") as HTMLDivElement;
 	const startBtn = document.getElementById("start-btn") as HTMLButtonElement;
 
-	const el = (id: string) => document.getElementById(id)!;
-
+	// The level / rescued / lives readouts are drawn inside the canvas (Pixi HUD).
+	// This callback only drives the DOM win/lose overlay.
 	function renderHud(s: HudState) {
-		el("hud-level").textContent = String(s.level);
-		el("hud-total").textContent = String(s.totalLevels);
-		el("hud-name").textContent = s.levelName;
-		el("hud-rescued").textContent = String(s.rescued);
-		el("hud-toRescue").textContent = String(s.toRescue);
-		el("hud-lives").textContent = String(s.lives);
-
 		if (s.status === "playing") {
 			overlay.classList.add("hidden");
 			overlay.classList.remove("flex");
@@ -177,11 +151,11 @@ import Layout from "../layouts/Layout.astro";
 		overlay.classList.remove("hidden");
 		overlay.classList.add("flex");
 		if (s.status === "won") {
-			overlayTitle.textContent = "🎉 All caticorns saved!";
-			overlaySub.textContent = "You cleared every cave. Hero of the realm.";
+			overlayTitle.textContent = EN.wonTitle;
+			overlaySub.textContent = EN.wonSub;
 		} else {
-			overlayTitle.textContent = "💀 Out of lives";
-			overlaySub.textContent = `You rescued ${s.rescued} this run. Try again?`;
+			overlayTitle.textContent = EN.lostTitle;
+			overlaySub.textContent = EN.lostSub(s.rescued);
 		}
 	}
 
@@ -346,7 +320,7 @@ import Layout from "../layouts/Layout.astro";
 
 	document.addEventListener("fullscreenchange", () => {
 		const active = document.fullscreenElement === stage;
-		fsBtn.textContent = active ? "⛶ Exit" : "⛶ Fullscreen";
+		fsBtn.textContent = active ? EN.exitFullscreen : EN.fullscreen;
 		syncFullscreenSize();
 		if (active) stage.focus();
 	});

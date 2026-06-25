@@ -1,4 +1,4 @@
-import { type Application, Container, Graphics } from "pixi.js";
+import { type Application, Container, Graphics, Text } from "pixi.js";
 import {
 	drawBackground,
 	drawDecor,
@@ -15,6 +15,7 @@ import { Exit } from "./entities/Exit";
 import { createMonster, type Monster } from "./entities/Monster";
 import { Player } from "./entities/Player";
 import { buildLevels } from "./levels";
+import { EN } from "./strings/en";
 import {
 	GAME_HEIGHT,
 	GAME_WIDTH,
@@ -78,6 +79,12 @@ export class Game {
 	private readonly nightOverlay = new Graphics();
 	/** Day/night phase accumulator in seconds. */
 	private dayPhase = 0;
+
+	/** Fixed in-canvas HUD layer (level / lives / rescued), above the world. */
+	private readonly hud = new Container();
+	private hudLevel!: Text;
+	private hudRescued!: Text;
+	private hudLives!: Text;
 	/** Sub-layer for entities so we can clear them between levels. */
 
 	private readonly keys = new Set<string>();
@@ -131,6 +138,12 @@ export class Game {
 		this.nightOverlay.eventMode = "none";
 		this.nightOverlay.alpha = 0;
 		this.app.stage.addChild(this.nightOverlay);
+
+		// In-canvas HUD, drawn above the world + tint so it stays legible. A pill
+		// backdrop with three text readouts; updated in emitHud(). Sits at a fixed
+		// screen position (added to stage, not the scrolling world).
+		this.buildHud();
+		this.app.stage.addChild(this.hud);
 
 		this.onKeyDown = (e) => {
 			if (
@@ -624,14 +637,61 @@ export class Game {
 	}
 
 	private emitHud(): void {
+		const rescued = this.caticorns.filter((c) => c.rescued).length;
+		const toRescue = this.caticorns.length;
+
+		// Update the in-canvas HUD readouts.
+		if (this.level) {
+			const name = EN.levels[this.level.name] ?? this.level.name;
+			this.hudLevel.text = EN.hudLevel(
+				name,
+				this.levelIndex + 1,
+				this.levels.length,
+			);
+			this.hudRescued.text = EN.hudRescued(rescued, toRescue);
+			this.hudLives.text = EN.hudLives(this.lives);
+			// Right-align the lives readout to the play area's right edge.
+			this.hudLives.x = GAME_WIDTH - 12 - this.hudLives.width;
+		}
+
+		// Still notify the host page for the win/lose overlay (DOM).
 		this.onHud({
 			level: this.levelIndex + 1,
 			levelName: this.level.name,
 			totalLevels: this.levels.length,
-			rescued: this.caticorns.filter((c) => c.rescued).length,
-			toRescue: this.caticorns.length,
+			rescued,
+			toRescue,
 			lives: this.lives,
 			status: this.status,
 		});
+	}
+
+	/** Build the fixed in-canvas HUD: a translucent bar with three readouts. */
+	private buildHud(): void {
+		const bar = new Graphics()
+			.roundRect(8, 8, GAME_WIDTH - 16, 26, 8)
+			.fill({ color: 0x1a1124, alpha: 0.55 });
+		this.hud.addChild(bar);
+
+		const style = {
+			fill: "#ffe9b8",
+			fontSize: 14,
+			fontWeight: "bold" as const,
+			fontFamily: "system-ui, sans-serif",
+		};
+		this.hudLevel = new Text({ text: "", style });
+		this.hudLevel.x = 14;
+		this.hudLevel.y = 13;
+
+		this.hudRescued = new Text({ text: "", style });
+		this.hudRescued.anchor.set(0.5, 0);
+		this.hudRescued.x = GAME_WIDTH / 2;
+		this.hudRescued.y = 13;
+
+		this.hudLives = new Text({ text: "", style });
+		this.hudLives.y = 13;
+
+		this.hud.addChild(this.hudLevel, this.hudRescued, this.hudLives);
+		this.hud.eventMode = "none";
 	}
 }

@@ -1,4 +1,5 @@
 ---
+import { EN } from "../game/strings/en";
 import "../styles/global.css";
 
 interface Props {
@@ -6,10 +7,7 @@ interface Props {
 	description?: string;
 }
 
-const {
-	title = "Caticorn Cave Rescue",
-	description = "Save the caticorns trapped in the cave! A PixiJS platformer.",
-} = Astro.props;
+const { title = EN.title, description = EN.metaDescription } = Astro.props;
 
 // Prefix static asset paths with the configured base so links work on GitHub
 // Pages (served from /caticorn-cave-rescue/).
