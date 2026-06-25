@@ -32,7 +32,13 @@ export interface Rect {
 export interface Platform extends Rect {}
 
 /** Per-entity spawn data from a level (bottom-centre positions). */
-export interface CaticornSpec extends Vec2 {}
+export interface CaticornSpec extends Vec2 {
+	/**
+	 * How the caticorn is held. "shackle" frees on contact; "cage" must be
+	 * stomped (landed on from above) to break open.
+	 */
+	containment: "shackle" | "cage";
+}
 
 export interface MonsterSpec extends Vec2 {
 	/** Half-width of the patrol path in pixels. */

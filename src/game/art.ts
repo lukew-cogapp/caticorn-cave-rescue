@@ -285,6 +285,59 @@ export function drawCaticorn(happy = false): Container {
 }
 
 /**
+ * Iron shackle clamped on a captive caticorn (freed on contact). A pair of
+ * cuffs with a drooping chain. Bottom-centre origin, sized to sit over a small
+ * caticorn. Purely decorative — the Game fades it out on rescue.
+ */
+export function drawShackle(): Container {
+	const c = new Container();
+	const g = new Graphics();
+	const iron = "#8a93a3";
+	const ironDark = "#5b6472";
+	// Two cuffs around the lower body.
+	for (const cx of [-9, 9]) {
+		g.circle(cx, -8, 5).stroke({ color: iron, width: 3 });
+		g.circle(cx, -8, 5).stroke({ color: ironDark, width: 1 });
+	}
+	// Drooping chain between them.
+	g.moveTo(-6, -7)
+		.quadraticCurveTo(0, 0, 6, -7)
+		.stroke({ color: iron, width: 2.5, cap: "round" });
+	c.addChild(g);
+	return c;
+}
+
+/**
+ * A barred cage trapping a caticorn (must be stomped to break). Vertical bars
+ * with a top + base bar. Bottom-centre origin. The Game shatters + fades it on
+ * a stomp.
+ */
+export function drawCage(): Container {
+	const c = new Container();
+	const g = new Graphics();
+	const bar = "#b9c0cc";
+	const barDark = "#727a88";
+	const w = 40;
+	const h = 50;
+	// Base + dome top.
+	g.roundRect(-w / 2, -6, w, 6, 2).fill(barDark);
+	g.moveTo(-w / 2, -h + 8)
+		.quadraticCurveTo(0, -h - 4, w / 2, -h + 8)
+		.stroke({ color: bar, width: 3 });
+	// Vertical bars.
+	for (let i = 0; i <= 4; i++) {
+		const x = -w / 2 + (i / 4) * w;
+		g.moveTo(x, -h + 9)
+			.lineTo(x, -4)
+			.stroke({ color: bar, width: 2.5, cap: "round" });
+	}
+	// A little top ring/handle.
+	g.circle(0, -h - 2, 3).stroke({ color: bar, width: 2 });
+	c.addChild(g);
+	return c;
+}
+
+/**
  * Build a cute-spooky ghost caticorn for the death animation: a pale, translucent
  * sheet body with a wavy bottom hem, the caticorn horn + ear silhouette, and big
  * sad eyes. Tinted faintly toward the variant colour so it reads as the hero who

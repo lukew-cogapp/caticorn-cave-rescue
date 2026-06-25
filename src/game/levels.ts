@@ -200,7 +200,15 @@ function makeLevel(c: LevelConfig, index: number): Level {
 		const py = GROUND_Y - drop;
 		const plat: Platform = { x: px, y: py, w: RESCUE_W, h: RESCUE_H };
 		platforms.push(plat);
-		caticorns.push({ x: px + RESCUE_W / 2, y: py });
+		// Early levels use shackles (free on contact); later levels introduce
+		// cages (must be stomped). The last level mixes both for variety.
+		const lastLevel = index === 3;
+		const caged = index >= 2 && (!lastLevel || i % 2 === 1);
+		caticorns.push({
+			x: px + RESCUE_W / 2,
+			y: py,
+			containment: caged ? "cage" : "shackle",
+		});
 		rescues.push({ plat, needsTrampoline });
 
 		// For tall single-/double-jump platforms, drop a stepping stone partway

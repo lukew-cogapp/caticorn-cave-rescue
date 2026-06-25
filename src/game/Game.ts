@@ -546,19 +546,26 @@ export class Game {
 			}
 		}
 
-		// Rescue caticorns on contact.
+		// Rescue caticorns. Shackled ones free on contact; caged ones must be
+		// stomped (landed on from above while falling), like breaking the cage.
 		for (const cat of this.caticorns) {
-			if (!cat.rescued && rectsOverlap(pBox, cat.aabb())) {
-				cat.rescue();
-				this.totalRescued += 1;
-				this.score += 1;
-				const cBox = cat.aabb();
-				this.particles.burst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
-				// Rising tune: step = how many freed so far this level (0-based).
-				const step = this.caticorns.filter((c) => c.rescued).length - 1;
-				this.audio.rescue(step);
-				this.emitHud();
+			if (cat.rescued) continue;
+			const cBox = cat.aabb();
+			if (!rectsOverlap(pBox, cBox)) continue;
+			if (cat.containment === "cage") {
+				const fromAbove =
+					this.player.velY > 0 && pBox.y + pBox.h <= cBox.y + STOMP_TOLERANCE;
+				if (!fromAbove) continue; // bumping a cage from the side does nothing
+				this.player.bounce(STOMP_BOUNCE); // little hop off the broken cage
 			}
+			cat.rescue();
+			this.totalRescued += 1;
+			this.score += 1;
+			this.particles.burst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
+			// Rising tune: step = how many freed so far this level (0-based).
+			const step = this.caticorns.filter((c) => c.rescued).length - 1;
+			this.audio.rescue(step);
+			this.emitHud();
 		}
 
 		// Exit unlocks once all are freed; reaching it clears the level.
