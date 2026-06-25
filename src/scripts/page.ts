@@ -438,3 +438,106 @@ document.addEventListener("fullscreenchange", () => {
 	}
 });
 window.addEventListener("resize", syncFullscreenSize);
+
+// --- Service worker registration ---
+if ("serviceWorker" in navigator) {
+	navigator.serviceWorker.register("/sw.js").catch(() => {
+		/* SW registration failed (e.g. file not found in dev); silently ignore */
+	});
+}
+
+// --- PWA install prompt ---
+// localStorage key used to remember permanent dismissals / installs.
+const INSTALL_DISMISSED_KEY = "caticorn-install-dismissed";
+
+const installToast = document.getElementById("install-toast") as HTMLDivElement;
+const installBtn = document.getElementById("install-btn") as HTMLButtonElement;
+const installAndroid = document.getElementById(
+	"install-android",
+) as HTMLSpanElement;
+const installIos = document.getElementById("install-ios") as HTMLSpanElement;
+const installDismiss = document.getElementById(
+	"install-dismiss",
+) as HTMLButtonElement;
+
+/** Show the toast (flex) only when it has not been permanently dismissed and we
+ * are not already running as a standalone PWA (display-mode: standalone). */
+function isStandalone(): boolean {
+	return window.matchMedia("(display-mode: standalone)").matches;
+}
+
+function isDismissed(): boolean {
+	return !!localStorage.getItem(INSTALL_DISMISSED_KEY);
+}
+
+function showToast() {
+	if (isStandalone() || isDismissed()) return;
+	installToast.classList.remove("hidden");
+	installToast.classList.add("flex");
+}
+
+function hideToast(permanent: boolean) {
+	installToast.classList.add("hidden");
+	installToast.classList.remove("flex");
+	if (permanent) {
+		localStorage.setItem(INSTALL_DISMISSED_KEY, "1");
+	}
+}
+
+installDismiss.addEventListener("click", () => hideToast(true));
+
+// Android / Chrome: capture the beforeinstallprompt event and show the toast.
+// The browser fires this when the PWA criteria are met and the app is not yet
+// installed.
+type BeforeInstallPromptEvent = Event & {
+	readonly platforms: string[];
+	readonly userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+	prompt(): Promise<void>;
+};
+
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+	e.preventDefault();
+	deferredPrompt = e as BeforeInstallPromptEvent;
+	// Show Android path, hide iOS hint.
+	installAndroid.classList.remove("hidden");
+	installAndroid.classList.add("flex");
+	installIos.classList.add("hidden");
+	installIos.classList.remove("flex");
+	showToast();
+});
+
+installBtn.addEventListener("click", async () => {
+	if (!deferredPrompt) return;
+	await deferredPrompt.prompt();
+	const { outcome } = await deferredPrompt.userChoice;
+	deferredPrompt = null;
+	// Whether accepted or dismissed by the user: hide permanently so we don't
+	// re-show on the next page load (the browser also won't re-fire the event).
+	hideToast(outcome === "accepted");
+	if (outcome !== "accepted") {
+		// User tapped "Cancel" in the native dialog — hide but don't permanently
+		// dismiss (let them decide again after a fresh page load). Revert the
+		// permanent flag we set above.
+		localStorage.removeItem(INSTALL_DISMISSED_KEY);
+	}
+});
+
+// Once the app is installed, hide the toast for good.
+window.addEventListener("appinstalled", () => hideToast(true));
+
+// iOS Safari: no beforeinstallprompt. Detect via UA and standalone mode.
+// Show a one-time instructional hint.
+function isIos(): boolean {
+	// navigator.userAgent is fine here (read-only detection, not spoofing concern)
+	return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+if (isIos() && !isStandalone()) {
+	installAndroid.classList.add("hidden");
+	installAndroid.classList.remove("flex");
+	installIos.classList.remove("hidden");
+	installIos.classList.add("flex");
+	showToast();
+}

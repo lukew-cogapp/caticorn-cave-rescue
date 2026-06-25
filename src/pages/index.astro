@@ -65,6 +65,50 @@ import Layout from "../layouts/Layout.astro";
 			{EN.controlsFooter}
 		</p>
 	</main>
+
+	<!--
+		PWA install toast — hidden by default; page.ts reveals it when:
+		  - Android/Chrome: `beforeinstallprompt` fires (not yet installed)
+		  - iOS Safari: running in browser (not standalone) and not dismissed before
+
+		#install-toast    — the container (shown/hidden by JS)
+		#install-btn      — triggers the native Android A2HS prompt
+		#install-ios-hint — replaces the button row on iOS with a plain text hint
+		#install-dismiss  — hides the toast and writes to localStorage
+	-->
+	<div
+		id="install-toast"
+		role="status"
+		aria-live="polite"
+		class="fixed bottom-4 left-1/2 z-50 hidden -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/20 bg-[#26134f] px-4 py-3 text-sm text-white shadow-xl"
+	>
+		<!-- Android / Chrome path: native prompt button -->
+		<span id="install-android" class="flex items-center gap-3">
+			<span class="text-base">📲</span>
+			<button
+				id="install-btn"
+				type="button"
+				class="font-semibold text-amber-300 underline-offset-2 hover:underline"
+			>
+				{EN.installPrompt}
+			</button>
+			<span class="text-white/40">·</span>
+		</span>
+		<!-- iOS Safari path: instructional hint, no button -->
+		<span id="install-ios" class="hidden items-center gap-2">
+			<span class="text-base">📲</span>
+			<span>{EN.iosInstallHint}</span>
+			<span class="text-white/40">·</span>
+		</span>
+		<button
+			id="install-dismiss"
+			type="button"
+			aria-label="Dismiss install prompt"
+			class="text-white/50 hover:text-white"
+		>
+			✕
+		</button>
+	</div>
 </Layout>
 
 <script>

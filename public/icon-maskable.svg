@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Full-bleed deep indigo background for maskable safe-zone compliance -->
+  <rect width="512" height="512" fill="#1a1124"/>
+  <!-- Icon content scaled to ~80% so it fits within any mask shape's safe zone -->
+  <!-- Cat head (centred, scaled down ~10% from non-maskable) -->
+  <ellipse cx="256" cy="295" rx="100" ry="86" fill="#f59e0b"/>
+  <!-- Left ear -->
+  <polygon points="166,240 184,170 218,224" fill="#f59e0b"/>
+  <!-- Right ear -->
+  <polygon points="346,240 328,170 294,224" fill="#f59e0b"/>
+  <!-- Inner left ear -->
+  <polygon points="178,232 190,182 214,220" fill="#fde68a"/>
+  <!-- Inner right ear -->
+  <polygon points="334,232 322,182 298,220" fill="#fde68a"/>
+  <!-- Horn -->
+  <polygon points="256,118 242,192 270,192" fill="#a78bfa"/>
+  <!-- Horn shimmer -->
+  <polygon points="256,118 250,166 256,162" fill="#c4b5fd"/>
+  <!-- Muzzle -->
+  <ellipse cx="256" cy="318" rx="54" ry="44" fill="#fde68a"/>
+  <!-- Eyes -->
+  <ellipse cx="226" cy="280" rx="14" ry="16" fill="#1a1124"/>
+  <ellipse cx="286" cy="280" rx="14" ry="16" fill="#1a1124"/>
+  <!-- Eye shine -->
+  <circle cx="231" cy="275" r="4.5" fill="white"/>
+  <circle cx="291" cy="275" r="4.5" fill="white"/>
+  <!-- Nose -->
+  <ellipse cx="256" cy="308" rx="9" ry="6" fill="#ec4899"/>
+  <!-- Mouth -->
+  <path d="M 248 317 Q 256 328 264 317" stroke="#1a1124" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Whiskers left -->
+  <line x1="204" y1="312" x2="242" y2="313" stroke="#1a1124" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="202" y1="321" x2="242" y2="319" stroke="#1a1124" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Whiskers right -->
+  <line x1="270" y1="313" x2="308" y2="312" stroke="#1a1124" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="270" y1="319" x2="308" y2="321" stroke="#1a1124" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Small star sparkle -->
+  <path d="M 390 100 L 397 114 L 412 108 L 401 120 L 412 132 L 397 126 L 390 140 L 383 126 L 368 132 L 379 120 L 368 108 L 383 114 Z" fill="#fde68a" opacity="0.85"/>
+</svg>

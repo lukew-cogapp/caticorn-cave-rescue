@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Deep indigo background circle -->
+  <circle cx="256" cy="256" r="256" fill="#1a1124"/>
+  <!-- Caticorn emblem: stylised cat head with horn, in warm amber/gold -->
+  <!-- Cat head -->
+  <ellipse cx="256" cy="290" rx="110" ry="95" fill="#f59e0b"/>
+  <!-- Left ear -->
+  <polygon points="158,230 178,155 215,215" fill="#f59e0b"/>
+  <!-- Right ear -->
+  <polygon points="354,230 334,155 297,215" fill="#f59e0b"/>
+  <!-- Inner left ear -->
+  <polygon points="170,220 184,168 210,212" fill="#fde68a"/>
+  <!-- Inner right ear -->
+  <polygon points="342,220 328,168 302,212" fill="#fde68a"/>
+  <!-- Horn (unicorn) -->
+  <polygon points="256,100 240,185 272,185" fill="#a78bfa"/>
+  <!-- Horn shimmer -->
+  <polygon points="256,100 249,160 256,155" fill="#c4b5fd"/>
+  <!-- Face: lighter muzzle -->
+  <ellipse cx="256" cy="315" rx="60" ry="48" fill="#fde68a"/>
+  <!-- Eyes -->
+  <ellipse cx="224" cy="275" rx="16" ry="18" fill="#1a1124"/>
+  <ellipse cx="288" cy="275" rx="16" ry="18" fill="#1a1124"/>
+  <!-- Eye shine -->
+  <circle cx="229" cy="270" r="5" fill="white"/>
+  <circle cx="293" cy="270" r="5" fill="white"/>
+  <!-- Nose -->
+  <ellipse cx="256" cy="305" rx="10" ry="7" fill="#ec4899"/>
+  <!-- Mouth -->
+  <path d="M 246 314 Q 256 326 266 314" stroke="#1a1124" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Whiskers left -->
+  <line x1="200" y1="308" x2="240" y2="310" stroke="#1a1124" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="198" y1="318" x2="240" y2="316" stroke="#1a1124" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Whiskers right -->
+  <line x1="272" y1="310" x2="312" y2="308" stroke="#1a1124" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="272" y1="316" x2="312" y2="318" stroke="#1a1124" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Star sparkle top-right -->
+  <path d="M 390 90 L 398 108 L 416 100 L 404 114 L 416 128 L 398 120 L 390 138 L 382 120 L 364 128 L 376 114 L 364 100 L 382 108 Z" fill="#fde68a" opacity="0.9"/>
+</svg>

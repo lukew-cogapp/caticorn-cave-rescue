@@ -12,6 +12,8 @@ const { title = EN.title, description = EN.metaDescription } = Astro.props;
 // Prefix static asset paths with the configured base so links keep working if
 // a base path is ever reintroduced. Served from root on the custom domain.
 const favicon = `${import.meta.env.BASE_URL}/favicon.svg`.replace("//", "/");
+const manifest = `${import.meta.env.BASE_URL}/manifest.webmanifest`.replace("//", "/");
+const appleIcon = `${import.meta.env.BASE_URL}/icon.svg`.replace("//", "/");
 ---
 
 <!doctype html>
@@ -19,6 +21,12 @@ const favicon = `${import.meta.env.BASE_URL}/favicon.svg`.replace("//", "/");
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" type="image/svg+xml" href={favicon} />
+		<link rel="manifest" href={manifest} />
+		<link rel="apple-touch-icon" href={appleIcon} />
+		<meta name="theme-color" content="#26134f" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="Caticorn" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="generator" content={Astro.generator} />
 		<meta name="description" content={description} />

@@ -76,6 +76,15 @@ export const EN = {
 	fullscreen: "Fullscreen",
 	exitFullscreen: "Exit",
 
+	/** PWA install prompts. */
+	/** Android/Chrome: text on the "Add to Home Screen" install toast button. */
+	installPrompt: "Add to Home Screen",
+	/** Android/Chrome: dismiss button on the install toast. */
+	installDismiss: "Not now",
+	/** iOS Safari: one-time hint shown when the game hasn't been added to the
+	 * home screen. Tells the user how to use the Share sheet. */
+	iosInstallHint: "Add to Home Screen via Share ⬆️ for the best experience",
+
 	/** Footer controls line. */
 	controlsFooter:
 		"Controls: Arrow keys / WASD to move, Up / Space / W to jump. Bounce on trampolines, dodge baddies, avoid the poop!",
