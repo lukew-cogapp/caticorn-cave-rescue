@@ -324,11 +324,12 @@ export class Game {
 		if (!this.started) return;
 		const dt = Math.min(this.app.ticker.deltaMS / 1000, 0.05);
 
-		// Day/night cycle: a slow sine drives the night overlay alpha (0 = day,
-		// up to ~0.55 at deep night). Purely cosmetic mood.
+		// Day/night cycle: a slow wave drives the night overlay alpha. Uses
+		// (1 - cos)/2 so it STARTS at full day (alpha 0) and eases into night,
+		// rather than starting half-dark. Capped low so day stays bright.
 		this.dayPhase += dt;
-		const night = (Math.sin(this.dayPhase * 0.18) + 1) / 2; // 0..1
-		this.nightOverlay.alpha = night * 0.55;
+		const night = (1 - Math.cos(this.dayPhase * 0.16)) / 2; // 0 at start → 1
+		this.nightOverlay.alpha = night * 0.4;
 
 		// Particles + shake run every frame regardless of status so bursts finish
 		// even on the win/lose/death frame.

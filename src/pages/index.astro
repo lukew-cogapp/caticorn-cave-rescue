@@ -24,8 +24,8 @@ import { EN } from "../game/strings/en";
 		<div
 			id="game-stage"
 			tabindex="-1"
-			class="relative mx-auto mt-4 aspect-[16/9] max-h-[80vh] w-full max-w-full overflow-hidden rounded-2xl border-4 border-stone-900 shadow-lg focus:outline-none"
-			style="height: min(80vh, calc((100vw - 3rem) * 9 / 16));"
+			class="relative mx-auto mt-4 aspect-video w-full overflow-hidden rounded-2xl border-4 border-stone-900 shadow-lg focus:outline-none"
+			style="max-width: min(100%, calc(80vh * 16 / 9));"
 		>
 			<canvas id="game-canvas" class="block h-full w-full"></canvas>
 
