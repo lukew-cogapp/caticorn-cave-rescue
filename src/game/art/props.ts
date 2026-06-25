@@ -178,7 +178,10 @@ function addMonsterFlourish(
 	const hw = kind === "bat" ? 10 : 12;
 
 	// Dispatch to the theme pack's flourish hook (geometry moved verbatim).
-	getThemePack(style).monsterFlourish(c, f, kind, isLurker, headY, hw);
+	// Absent → no flourish (just the base accent-tinted monster).
+	const pack = getThemePack(style);
+	if (!pack.monsterFlourish) return;
+	pack.monsterFlourish(c, f, kind, isLurker, headY, hw);
 
 	c.addChild(f);
 }

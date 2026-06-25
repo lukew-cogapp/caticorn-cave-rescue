@@ -1,4 +1,10 @@
 import { Container, Graphics } from "pixi.js";
+import {
+	defaultFloorTones,
+	defaultPlatformTones,
+	drawDefaultFloorSurface,
+	drawDefaultPlatformSkin,
+} from "../level/theme-pack";
 import { getThemePack, type ThemeStyle } from "../level/themes";
 import type { Decor } from "../types";
 import { GAME_HEIGHT } from "../types";
@@ -1040,8 +1046,10 @@ export function drawBackgroundLayers(
 		});
 	}
 
-	// Theme-specific far silhouette pass — subtle backdrop shapes.
-	getThemePack(style).farSilhouettes(farG, worldWidth, wallFar, wallMid, rng);
+	// Theme-specific far silhouette pass — subtle backdrop shapes. Absent →
+	// nothing extra (the generic far rock row above already drew); consumes no RNG.
+	const farPack = getThemePack(style);
+	farPack.farSilhouettes?.(farG, worldWidth, wallFar, wallMid, rng);
 
 	farC.addChild(farG);
 
@@ -1064,16 +1072,20 @@ export function drawBackgroundLayers(
 
 	// Theme-specific mid-layer details replace the generic stalactite row. The
 	// pack returns whether the shared distant-stalagmite row should still draw
-	// (grove suppresses it).
-	const drawStalagmites = getThemePack(style).midDetails(
-		midG,
-		worldWidth,
-		wallFar,
-		wallMid,
-		wallNear,
-		wallLight,
-		rng,
-	);
+	// (grove suppresses it). Absent → behaves as if it returned `true` (keep the
+	// shared stalagmite row, add no extra ceiling art); consumes no RNG.
+	const midPack = getThemePack(style);
+	const drawStalagmites = midPack.midDetails
+		? midPack.midDetails(
+				midG,
+				worldWidth,
+				wallFar,
+				wallMid,
+				wallNear,
+				wallLight,
+				rng,
+			)
+		: true;
 
 	// Distant stalagmite silhouettes (shared across non-grove styles; grove omits).
 	if (drawStalagmites) {
@@ -1106,8 +1118,10 @@ export function drawBackgroundLayers(
 		});
 	}
 
-	// Theme-specific near silhouette details.
-	getThemePack(style).nearSilhouettes(
+	// Theme-specific near silhouette details. Absent → nothing extra (the generic
+	// near rock row above already drew); consumes no RNG.
+	const nearPack = getThemePack(style);
+	nearPack.nearSilhouettes?.(
 		nearG,
 		worldWidth,
 		wallFar,
@@ -1197,10 +1211,11 @@ export function drawFloorStrip(
 	const surfaceY = GAME_HEIGHT - 30; // walkable surface (= GROUND_Y)
 	const stripH = 30; // total strip height down to GAME_HEIGHT
 
-	// Theme-driven body, rim and detail tones (from the pack, blended toward accent).
+	// Theme-driven body, rim and detail tones (from the pack, blended toward
+	// accent). Absent floorTones → generic neutral rock floor.
 	const pack = getThemePack(style);
 	const { bodyTop, bodyBot, rimCol, mottle1, mottle2, edgeDark } =
-		pack.floorTones(accent);
+		pack.floorTones ? pack.floorTones(accent) : defaultFloorTones(accent);
 
 	const midY = surfaceY + stripH * 0.45;
 
@@ -1273,8 +1288,13 @@ export function drawFloorStrip(
 			});
 		}
 
-		// Theme-specific surface details drawn just below the rim.
-		pack.floorSurface(g, sx, ex, surfaceY, accent);
+		// Theme-specific surface details drawn just below the rim. Absent → the
+		// generic sparse moss-tuft fringe.
+		if (pack.floorSurface) {
+			pack.floorSurface(g, sx, ex, surfaceY, accent);
+		} else {
+			drawDefaultFloorSurface(g, sx, ex, surfaceY, accent);
+		}
 	}
 
 	c.addChild(g);
@@ -1321,10 +1341,13 @@ export function drawPlatform(
 
 	const r = 4; // corner radius (matches old roundRect)
 
-	// Theme-driven body, rim, shadow and detail tones (from the pack).
+	// Theme-driven body, rim, shadow and detail tones (from the pack). Absent
+	// platformTones → generic neutral rock palette.
 	const pack = getThemePack(style);
 	const { bodyCol, rimCol, shadowCol, sideShade, mottleCol, crackCol } =
-		pack.platformTones(accent);
+		pack.platformTones
+			? pack.platformTones(accent)
+			: defaultPlatformTones(accent);
 
 	// Body fill.
 	g.roundRect(0, 0, width, height, r).fill(bodyCol);
@@ -1358,8 +1381,13 @@ export function drawPlatform(
 		g.ellipse(mx, height * 0.5, mw, mh).fill({ color: mottleCol, alpha: 0.28 });
 	}
 
-	// Theme-specific surface details on the platform body.
-	pack.platformSkin(g, width, height, crackCol);
+	// Theme-specific surface details on the platform body. Absent → the generic
+	// hairline rock crack.
+	if (pack.platformSkin) {
+		pack.platformSkin(g, width, height, crackCol);
+	} else {
+		drawDefaultPlatformSkin(g, width, height, crackCol);
+	}
 
 	c.addChild(g);
 	return c;
