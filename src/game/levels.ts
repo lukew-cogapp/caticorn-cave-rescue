@@ -463,34 +463,45 @@ function makeDecor(
 	const inCeilingNoGo = (x: number) =>
 		ceilingNoGo.some((z) => x >= z.x && x <= z.x + z.w);
 
-	// --- Ceiling pass: stalactites (lethal) + rare crystal accents. ---
-	for (let x = 60; x < worldWidth - 40; x += 120) {
-		const dx = x + rng() * 40;
-		// Crystals are now a small subtle gem: emit one only occasionally.
-		if (rng() < 0.12) {
-			decor.push({ x: dx, y: 0, kind: "crystal", size: 10 + rng() * 8 });
+	// --- Ceiling pass: stalactites (lethal) + crystal accents, closely spaced. ---
+	for (let x = 50; x < worldWidth - 30; x += 78 + rng() * 26) {
+		const dx = x + rng() * 30;
+		// Crystals are a small subtle gem: a sprinkling of overhead accents.
+		if (rng() < 0.22) {
+			decor.push({ x: dx, y: 0, kind: "crystal", size: 9 + rng() * 9 });
 			continue;
 		}
 		if (inCeilingNoGo(dx)) continue; // never hang a spike over a forced jump arc
-		decor.push({ x: dx, y: 0, kind: "stalactite", size: 14 + rng() * 22 });
+		decor.push({ x: dx, y: 0, kind: "stalactite", size: 12 + rng() * 22 });
 	}
 
-	// --- Floor pass: pebble / mushroom / moss on solid ground only, sparse. ---
-	const floorKinds: Decor["kind"][] = ["pebble", "mushroom", "moss"];
-	for (let x = 80; x < worldWidth - 40; x += 110 + rng() * 30) {
-		// Sparse: skip ~45% of candidate spots so ground stays uncluttered.
-		if (rng() > 0.55) continue;
-		const dx = x + rng() * 24;
+	// --- Floor pass: pebble / mushroom / moss / crystal on solid ground. ---
+	const floorKinds: Decor["kind"][] = [
+		"pebble",
+		"mushroom",
+		"moss",
+		"pebble",
+		"crystal",
+	];
+	for (let x = 60; x < worldWidth - 30; x += 64 + rng() * 24) {
+		// Emit most candidates for a furnished floor (still skip a few for variety).
+		if (rng() > 0.78) continue;
+		const dx = x + rng() * 20;
 		if (!onSolidGround(dx, segs)) continue; // never float over a pit
 		const kind = floorKinds[Math.floor(rng() * floorKinds.length)];
 		decor.push({ x: dx, y: GROUND_Y, kind, size: 8 + rng() * 12 });
 	}
 
-	// --- Wall pass: faint background cracks at varying heights. ---
-	for (let x = 140; x < worldWidth - 60; x += 190 + rng() * 60) {
-		const dx = x + rng() * 40;
+	// --- Wall pass: background cracks + the occasional embedded crystal, at
+	// varying heights up the cave for depth. ---
+	for (let x = 90; x < worldWidth - 50; x += 110 + rng() * 50) {
+		const dx = x + rng() * 36;
 		const y = 40 + rng() * (GROUND_Y - 80 - 40); // ~40 .. GROUND_Y-80
-		decor.push({ x: dx, y, kind: "crack", size: 16 + rng() * 20 });
+		if (rng() < 0.25) {
+			decor.push({ x: dx, y, kind: "crystal", size: 8 + rng() * 7 });
+		} else {
+			decor.push({ x: dx, y, kind: "crack", size: 16 + rng() * 20 });
+		}
 	}
 
 	return decor;

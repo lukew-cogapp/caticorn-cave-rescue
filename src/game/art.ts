@@ -893,23 +893,47 @@ export function drawBackground(
 		g.rect(0, i * bandH, worldWidth, bandH + 1).fill(col);
 	}
 
-	// Subtle darker cave-wall arches/blobs for texture. Deterministic spacing.
-	const wallCol = packRgb(
-		lerp(tr, br, 0.6) - 12,
-		lerp(tg, bgc, 0.6) - 12,
-		lerp(tb, bb, 0.6) - 12,
+	// Layered cave-wall texture for depth. A darker and a lighter tone, several
+	// rows of overlapping rock blobs at deterministic offsets.
+	const wallDark = packRgb(
+		lerp(tr, br, 0.6) - 16,
+		lerp(tg, bgc, 0.6) - 16,
+		lerp(tb, bb, 0.6) - 16,
 	);
-	const step = 180;
+	const wallLight = packRgb(
+		lerp(tr, br, 0.45) + 14,
+		lerp(tg, bgc, 0.45) + 14,
+		lerp(tb, bb, 0.45) + 14,
+	);
+
+	// Faint vertical strata to suggest rock layers.
+	for (let x = 0; x < worldWidth; x += 46) {
+		const a = ((x / 46) % 2) * 0.04 + 0.03;
+		g.rect(x, 0, 24, GAME_HEIGHT).fill({ color: wallDark, alpha: a });
+	}
+
+	// Upper rock blobs (two interleaved rows).
+	const step = 150;
 	for (let x = step / 2; x < worldWidth; x += step) {
 		const phase = (x / step) % 3;
-		const ry = 70 + phase * 18;
-		g.ellipse(x, ry, 90, 60).fill({ color: wallCol, alpha: 0.25 });
+		g.ellipse(x, 64 + phase * 16, 88, 58).fill({
+			color: wallDark,
+			alpha: 0.26,
+		});
+		g.ellipse(x + step / 2, 30 + phase * 10, 60, 40).fill({
+			color: wallLight,
+			alpha: 0.1,
+		});
 	}
-	// A second row of lower, wider blobs offset from the first.
+	// Lower wide blobs (two interleaved rows) for a chunky cave floor wall.
 	for (let x = step; x < worldWidth; x += step) {
-		g.ellipse(x, GAME_HEIGHT - 90, 120, 70).fill({
-			color: wallCol,
-			alpha: 0.2,
+		g.ellipse(x, GAME_HEIGHT - 88, 120, 70).fill({
+			color: wallDark,
+			alpha: 0.22,
+		});
+		g.ellipse(x + step / 2, GAME_HEIGHT - 130, 80, 50).fill({
+			color: wallDark,
+			alpha: 0.14,
 		});
 	}
 
