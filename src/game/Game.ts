@@ -68,6 +68,10 @@ const POOP_DAMAGE = 1 / 10;
  * stomp rather than a side hit, in pixels.
  */
 const STOMP_TOLERANCE = 14;
+/** How far the cage roof sits above the caticorn's collision box, in px. */
+const CAGE_HEIGHT_ABOVE = 20;
+/** Vertical tolerance for landing a stomp on a cage roof, in px. */
+const CAGE_STOMP_TOLERANCE = 18;
 
 /**
  * Orchestrates the whole game: owns the Pixi app, builds each level's scene,
@@ -110,6 +114,8 @@ export class Game {
 	private totalRescued = 0;
 	/** Score: +1 per caticorn rescued, +1 per monster stomped. */
 	private score = 0;
+	/** Rising-tune step, advanced by each rescue AND each monster kill. */
+	private songStep = 0;
 	/** Elapsed run time in seconds, accumulated while playing. */
 	private elapsed = 0;
 	/** Remaining seconds of poop slow/stuck effect (lingers after leaving). */
@@ -256,6 +262,7 @@ export class Game {
 		this.poopTimer = 0;
 		this.freezeTimer = 0;
 		this.invulnTimer = 0;
+		this.songStep = 0;
 		this.fallingPoops = [];
 
 		// Background gradient + cave mood, then ambient fireflies in front of it
@@ -613,7 +620,8 @@ export class Game {
 				this.particles.burst(m.pos.x, m.pos.y - mBox.h / 2, "puff", 8);
 				this.shake.add(3);
 				this.freezeTimer = FREEZE_STOMP;
-				this.audio.rescue();
+				// Advance the rising tune (shared with caticorn rescues).
+				this.audio.rescue(this.songStep++);
 				this.emitHud();
 			} else if (this.invulnTimer <= 0) {
 				if (this.hitByMonster()) return; // returns true if that was the last life
@@ -665,8 +673,12 @@ export class Game {
 			const cBox = cat.aabb();
 			if (!rectsOverlap(pBox, cBox)) continue;
 			if (cat.containment === "cage") {
+				// The cage rises above the caticorn box; accept a stomp landing on
+				// the cage roof (a bit higher than the caticorn's own top).
+				const cageTop = cBox.y - CAGE_HEIGHT_ABOVE;
 				const fromAbove =
-					this.player.velY > 0 && pBox.y + pBox.h <= cBox.y + STOMP_TOLERANCE;
+					this.player.velY > 0 &&
+					pBox.y + pBox.h <= cageTop + CAGE_STOMP_TOLERANCE;
 				if (!fromAbove) continue; // bumping a cage from the side does nothing
 				this.player.bounce(STOMP_BOUNCE); // little hop off the broken cage
 			}
@@ -674,9 +686,8 @@ export class Game {
 			this.totalRescued += 1;
 			this.score += 1;
 			this.particles.burst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
-			// Rising tune: step = how many freed so far this level (0-based).
-			const step = this.caticorns.filter((c) => c.rescued).length - 1;
-			this.audio.rescue(step);
+			// Advance the rising tune (shared with monster kills).
+			this.audio.rescue(this.songStep++);
 			this.emitHud();
 		}
 
