@@ -302,10 +302,11 @@ import { EN } from "../game/strings/en";
 		if (startScreen.classList.contains("hidden")) return;
 		const ids = CHARACTERS.map((c) => c.id);
 		const i = chosen ? ids.indexOf(chosen) : 0;
-		if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+		const k = e.key.toLowerCase();
+		if (e.key === "ArrowRight" || e.key === "ArrowDown" || k === "d") {
 			e.preventDefault();
 			select(ids[(i + 1) % ids.length]);
-		} else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+		} else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || k === "a") {
 			e.preventDefault();
 			select(ids[(i - 1 + ids.length) % ids.length]);
 		} else if (e.key === " " || e.key === "Enter") {
@@ -371,11 +372,32 @@ import { EN } from "../game/strings/en";
 		}
 	});
 
+	// Try to lock to landscape in fullscreen (mobile); unlock on exit. The
+	// Orientation lock API is non-standard and only works in fullscreen on
+	// supporting devices, so guard + ignore rejections.
+	type LockableOrientation = ScreenOrientation & {
+		lock?: (o: string) => Promise<void>;
+	};
+	function lockLandscape() {
+		const o = screen.orientation as LockableOrientation | undefined;
+		o?.lock?.("landscape").catch(() => {
+			/* unsupported (e.g. desktop / iOS Safari); ignore */
+		});
+	}
+	function unlockOrientation() {
+		screen.orientation?.unlock?.();
+	}
+
 	document.addEventListener("fullscreenchange", () => {
 		const active = document.fullscreenElement === stage;
 		fsBtn.textContent = active ? EN.exitFullscreen : EN.fullscreen;
 		syncFullscreenSize();
-		if (active) stage.focus();
+		if (active) {
+			stage.focus();
+			lockLandscape();
+		} else {
+			unlockOrientation();
+		}
 	});
 	window.addEventListener("resize", syncFullscreenSize);
 </script>
