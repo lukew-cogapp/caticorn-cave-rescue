@@ -1,4 +1,9 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawBatCat,
+	drawCrawlerCat,
+	drawLurkerCat,
+} from "../../art/themes/cat/monsters";
 import { tint, wobble } from "../../art/util";
 import { GAME_HEIGHT } from "../../types";
 import type { FloorTones, PlatformTones, Rng, ThemePack } from "../theme-pack";
@@ -350,5 +355,26 @@ export const catPack: ThemePack = {
 				alpha: 0.15,
 			});
 		}
+	},
+
+	/**
+	 * Full cat reskin for all three monster kinds. Replaces the base shape so the
+	 * whole monster reads as a cute (but mischievous) ginger cat. Returns `null`
+	 * only if `kind` is unrecognised, which never happens in practice.
+	 *
+	 * All three reskins are deterministic (no `Math.random`/`Date.now`) and stay
+	 * within the base kind's gameplay footprint so aabb/stomp feel unchanged:
+	 *   - crawler → walking cat, bottom-centre, head clearly on top (stompable)
+	 *   - bat     → winged flying cat, bottom-centre, centred flyer
+	 *   - lurker  → upside-down ceiling cat, origin at y=0, grows downward
+	 */
+	monsterSkin(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawCrawlerCat(accent);
+		if (kind === "bat") return drawBatCat(accent);
+		if (kind === "lurker") return drawLurkerCat(accent);
+		return null;
 	},
 };

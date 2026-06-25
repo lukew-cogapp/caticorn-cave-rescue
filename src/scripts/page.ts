@@ -336,6 +336,19 @@ window.addEventListener("keydown", (e) => {
 
 restartBtn.addEventListener("click", () => game.restart());
 
+// "Return to start": from the win/lose overlay back to character select. Hides
+// the overlay + touch controls and re-shows the start screen; the next pick +
+// Start begins a fresh run.
+const toStartBtn = document.getElementById("to-start-btn");
+toStartBtn?.addEventListener("click", () => {
+	overlay.classList.add("hidden");
+	overlay.classList.remove("flex");
+	setTouchControls(false);
+	runSummary.classList.add("hidden");
+	startScreen.classList.remove("hidden");
+	startScreen.classList.add("flex");
+});
+
 // --- Touch controls ---
 // The engine listens for keyboard events on window, so on-screen buttons
 // just synthesize the matching key down/up. Shown only on touch devices.
