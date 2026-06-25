@@ -129,3 +129,44 @@ export const LURKER_SWAY = 10;
 export const MAX_PARTICLES = 120;
 /** Lifetime of a spawned particle, in seconds. */
 export const PARTICLE_LIFE = 0.5;
+
+// --- Rescue burst polish ---
+
+/** Total celebratory particles (star + spark mix) emitted when a cat is freed. */
+export const RESCUE_BURST_COUNT = 18;
+/**
+ * Hard cap on live rescue rings. Kept tiny and in its own pool so the expanding
+ * ring never competes with gameplay bursts for the {@link MAX_PARTICLES} budget.
+ */
+export const MAX_RINGS = 4;
+/** Seconds the expanding rescue ring takes to scale up + fade out. */
+export const RING_LIFE = 0.5;
+/** Final scale multiplier the rescue ring grows to before vanishing. */
+export const RING_MAX_SCALE = 4;
+
+// --- Landing dust ---
+
+/** Base dust specks on a hard landing (before the impact-speed bonus). */
+export const LAND_DUST_BASE = 4;
+/** Extra dust specks added at the very hardest landing (scaled by impact). */
+export const LAND_DUST_BONUS = 6;
+/** Impact speed (px/sec) at/above which the full dust bonus is awarded. */
+export const LAND_DUST_FULL_SPEED = 1400;
+
+// --- Ambient cave motes ---
+
+/** Number of slow-drifting ambient motes kept alive in the world per level. */
+export const MOTE_COUNT = 12;
+/** Vertical drift speed of a mote (px/sec, gently upward). */
+export const MOTE_RISE_SPEED = 9;
+/** Horizontal sway amplitude of a mote (px). */
+export const MOTE_SWAY = 14;
+/** Peak alpha of an ambient mote (very faint atmosphere). */
+export const MOTE_ALPHA = 0.5;
+
+// --- Exit beckon ---
+
+/** Seconds between exit-beckon sparkle emissions while the exit is unlocked. */
+export const BECKON_INTERVAL = 0.4;
+/** Sparkles emitted per beckon pulse. */
+export const BECKON_COUNT = 2;

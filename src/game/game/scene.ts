@@ -11,13 +11,15 @@ import {
 	drawTrampoline,
 	type PlayerVariant,
 } from "../art";
+import { MOTE_COUNT } from "../const";
 import { Caticorn } from "../entities/Caticorn";
 import { Exit } from "../entities/Exit";
 import { createMonster, type Monster } from "../entities/Monster";
 import { Player } from "../entities/Player";
 import type { Fireflies } from "../systems/Fireflies";
 import type { HealthBar } from "../systems/HealthBar";
-import { GAME_HEIGHT, type Level, type Rect } from "../types";
+import type { Motes } from "../systems/Motes";
+import { GAME_HEIGHT, GROUND_Y, type Level, type Rect } from "../types";
 
 /** A flute pickup: sprite + collision box + drift state. */
 export interface FluteEntry {
@@ -58,16 +60,17 @@ export interface Scene {
 /**
  * Build a level's scene into the (already-cleared) world container, back to
  * front: parallax background layers (far/mid/near) with ambient glow clusters
- * on the far layer, the drawn floor strip, fireflies, decor (registering
- * stalactite spikes), platforms + grass, trampolines, flutes, exit, caticorns,
- * monsters, then the player + floating health bar on top. Entity iteration order
- * is preserved so deterministic spawning is unchanged.
+ * on the far layer, the drawn floor strip, fireflies + ambient motes, decor
+ * (registering stalactite spikes), platforms + grass, trampolines, flutes, exit,
+ * caticorns, monsters, then the player + floating health bar on top. Entity
+ * iteration order is preserved so deterministic spawning is unchanged.
  */
 export function loadScene(
 	world: Container,
 	level: Level,
 	variant: PlayerVariant,
 	fireflies: Fireflies,
+	motes: Motes,
 	healthBar: HealthBar,
 ): Scene {
 	const caticorns: Caticorn[] = [];
@@ -113,12 +116,21 @@ export function loadScene(
 	}
 
 	// Drawn ground strip along the bottom (surface sits at GAME_HEIGHT - 30,
-	// handled internally), above the background but below decor + gameplay.
-	world.addChild(drawFloorStrip(level.worldWidth, level.themeAccent));
+	// handled internally), above the background but below decor + gameplay. Only
+	// the solid ground segments (platforms at GROUND_Y) are painted; the gaps
+	// between them stay open so the dark background shows through as deep pits.
+	const groundSpans = level.platforms
+		.filter((p) => p.y === GROUND_Y)
+		.map((p) => ({ x: p.x, w: p.w }));
+	world.addChild(drawFloorStrip(groundSpans, level.themeAccent));
 
 	// Ambient fireflies in front of the backdrop but behind gameplay.
 	fireflies.spawn(level.worldWidth, 14);
 	world.addChild(fireflies.view);
+
+	// Ambient drifting cave motes (atmospheric dust), same depth as fireflies.
+	motes.spawn(level.worldWidth, MOTE_COUNT);
+	world.addChild(motes.view);
 
 	// Decor placement by kind: stalactites hang from the ceiling, wall cracks
 	// use their own y up the cave wall, everything else sits on the floor.

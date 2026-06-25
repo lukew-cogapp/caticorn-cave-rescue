@@ -33,6 +33,7 @@ import { buildLevels } from "./levels";
 import { Fireflies } from "./systems/Fireflies";
 import { HealthBar } from "./systems/HealthBar";
 import { Hud } from "./systems/Hud";
+import { Motes } from "./systems/Motes";
 import { Particles } from "./systems/Particles";
 import { ScreenShake } from "./systems/ScreenShake";
 import {
@@ -73,6 +74,8 @@ export class Game {
 	private readonly hud = new Hud();
 	/** Ambient background fireflies (added behind gameplay in the world). */
 	private readonly fireflies = new Fireflies();
+	/** Ambient drifting cave motes (foreground atmosphere, parented to the world). */
+	private readonly motes = new Motes();
 	/** Floating health bar above the player's head. */
 	private readonly healthBar = new HealthBar();
 	/** Juice systems: particle pool (parented to the world) + screen shake. */
@@ -100,6 +103,7 @@ export class Game {
 		totalRescued: 0,
 		health: START_HEALTH,
 		waypointTimer: 0,
+		beckonTimer: 0,
 	};
 	/** Elapsed run time in seconds, accumulated while playing. */
 	private elapsed = 0;
@@ -258,6 +262,7 @@ export class Game {
 		this.state.freezeTimer = 0;
 		this.state.invulnTimer = 0;
 		this.state.waypointTimer = 0;
+		this.state.beckonTimer = 0;
 		this.fallingPoops = [];
 
 		const scene = loadScene(
@@ -265,6 +270,7 @@ export class Game {
 			this.level,
 			this.variant,
 			this.fireflies,
+			this.motes,
 			this.healthBar,
 		);
 		this.caticorns = scene.caticorns;
@@ -360,6 +366,7 @@ export class Game {
 		}
 		updatePoops(this.world, this.poops, dt);
 		this.fireflies.update(dt);
+		this.motes.update(dt);
 
 		// Float the health bar above the player's head.
 		this.healthBar.update(

@@ -1,13 +1,19 @@
 import type { Chiptune } from "../audio";
 import {
+	BECKON_COUNT,
+	BECKON_INTERVAL,
 	CAGE_STOMP_TOLERANCE,
 	FALL_DAMAGE,
 	FLUTE_HEAL,
 	FREEZE_STOMP,
 	HARD_LAND_SPEED,
 	HIT_DAMAGE,
+	LAND_DUST_BASE,
+	LAND_DUST_BONUS,
+	LAND_DUST_FULL_SPEED,
 	POOP_LINGER,
 	POOP_SLOW,
+	RESCUE_BURST_COUNT,
 	STOMP_BOUNCE,
 	STOMP_TOLERANCE,
 	WAYPOINT_TIME,
@@ -42,6 +48,8 @@ export interface CollisionState {
 	totalRescued: number;
 	health: number;
 	waypointTimer: number;
+	/** Countdown to the next exit-beckon sparkle pulse (dt-driven, unlocked only). */
+	beckonTimer: number;
 }
 
 /** Read-only collaborators + callbacks the collision pass needs. */
@@ -106,7 +114,11 @@ export function resolveCollisions(
 	// shake is reserved for double-jump landings, so an ordinary jump never
 	// rattles the screen.
 	if (player.justLanded && player.landImpactSpeed > HARD_LAND_SPEED) {
-		particles.burst(player.pos.x, player.pos.y, "dust", 6);
+		// Scale the puff with impact: a heavier touchdown kicks up more dust.
+		const impact = Math.min(1, player.landImpactSpeed / LAND_DUST_FULL_SPEED);
+		const dustCount = Math.round(LAND_DUST_BASE + impact * LAND_DUST_BONUS);
+		// At the player's feet (pos.y is bottom-centre).
+		particles.burst(player.pos.x, player.pos.y, "dust", dustCount);
 		if (player.landedFromDoubleJump) {
 			const t = Math.min(1, player.landImpactSpeed / 1400);
 			shake.add(2 + t * 3);
@@ -213,7 +225,11 @@ export function resolveCollisions(
 		cat.rescue();
 		state.totalRescued += 1;
 		state.score += 1;
-		particles.burst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
+		// Celebratory pop: a star + spark confetti mix plus one expanding ring.
+		const cx = cat.pos.x;
+		const cy = cBox.y + cBox.h / 2;
+		particles.celebrate(cx, cy, RESCUE_BURST_COUNT);
+		particles.ring(cx, cy);
 		// Advance the rising tune (shared with monster kills).
 		audio.rescue(state.songStep++);
 		deps.emitHud();
@@ -223,6 +239,28 @@ export function resolveCollisions(
 	const allFreed = deps.caticorns.every((c) => c.rescued);
 	deps.exit.setUnlocked(allFreed);
 	deps.exit.update(ctx);
+
+	// Beckon: once unlocked, periodically emit a couple of sparkles drifting up
+	// from around the gate to draw the eye. Timer is dt-driven (never every
+	// frame) and only runs while unlocked; reset the timer so it fires promptly
+	// the moment the exit unlocks.
+	if (allFreed) {
+		state.beckonTimer -= dt;
+		if (state.beckonTimer <= 0) {
+			state.beckonTimer = BECKON_INTERVAL;
+			const eBox = deps.exit.aabb();
+			const ex = eBox.x + eBox.w / 2;
+			const ey = eBox.y + eBox.h / 2;
+			for (let i = 0; i < BECKON_COUNT; i++) {
+				// Spread the pair across the gate width by index (deterministic).
+				const fx = ex + ((i + 0.5) / BECKON_COUNT - 0.5) * eBox.w;
+				particles.burst(fx, ey, "sparkle", 1);
+			}
+		}
+	} else {
+		state.beckonTimer = 0;
+	}
+
 	if (rectsOverlap(pBox, deps.exit.aabb())) {
 		if (allFreed) {
 			deps.clearLevel();

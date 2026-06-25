@@ -666,12 +666,20 @@ export function drawBackgroundLayers(
  * All variation is deterministic (no `Math.random`). Structural tones blend
  * toward `accent` (at 40 % weight) when provided, matching the level mood.
  *
- * @param worldWidth - Total world width in pixels the strip spans.
+ * Only the solid ground `spans` are painted — the gaps between them are left
+ * empty so the dark cave background shows through, reading as deep pits. Each
+ * span's pit-facing ends are darkened so the drop looks like a real edge.
+ *
+ * @param spans - Solid ground runs as `{ x, w }` in world px (the level's
+ *                ground-segment platforms). Gaps between them stay open as pits.
  * @param accent - Optional theme accent `#rrggbb` to tint the rock tones.
- * @returns A Container with origin at (0,0); position it so it sits at (0,0)
- *          in world coords — the strip itself draws at the correct `y`.
+ * @returns A Container with origin at (0,0); position it at (0,0) in world
+ *          coords — the strip draws at the correct `y` internally.
  */
-export function drawFloorStrip(worldWidth: number, accent?: string): Container {
+export function drawFloorStrip(
+	spans: { x: number; w: number }[],
+	accent?: string,
+): Container {
 	const c = new Container();
 	const g = new Graphics();
 
@@ -686,74 +694,102 @@ export function drawFloorStrip(worldWidth: number, accent?: string): Container {
 	const mottle2 = tint("#56486e", accent, 0.35);
 	const mossCol = tint("#3a5c34", accent, 0.25);
 	const mossLit = tint("#4e7a46", accent, 0.25);
+	// Near-black for the pit-facing edge shadow so drops read as deep.
+	const edgeDark = tint("#0d0716", accent, 0.15);
 
-	// Body: two horizontal bands for a top-to-bottom darkening gradient.
 	const midY = surfaceY + stripH * 0.45;
-	g.rect(0, surfaceY, worldWidth, midY - surfaceY).fill(bodyTop);
-	g.rect(0, midY, worldWidth, GAME_HEIGHT - midY).fill(bodyBot);
 
-	// Mottled tone patches — irregular ellipses keyed off x position.
-	const mottleSpacing = 38;
-	for (let x = 0; x < worldWidth; x += mottleSpacing) {
-		// Alternate between two mottle colours deterministically.
-		const mc = Math.floor(x / mottleSpacing) % 2 === 0 ? mottle1 : mottle2;
-		const ox = wobble(x, 11, mottleSpacing * 0.3);
-		const oy = wobble(x, 13, stripH * 0.22);
-		const rw =
-			mottleSpacing * 0.55 + Math.abs(wobble(x, 17, mottleSpacing * 0.2));
-		const rh = stripH * 0.28 + Math.abs(wobble(x, 19, stripH * 0.1));
-		g.ellipse(x + ox, surfaceY + stripH * 0.5 + oy, rw, rh).fill({
-			color: mc,
-			alpha: 0.38,
-		});
-	}
+	for (const span of spans) {
+		const sx = span.x;
+		const ex = span.x + span.w;
+		const sw = span.w;
 
-	// Surface bump silhouette — a row of small humps just at the surface edge.
-	const bumpSpacing = 52;
-	for (let x = 0; x < worldWidth; x += bumpSpacing) {
-		const bh = 3 + Math.abs(wobble(x, 7, 2.5));
-		const bw = bumpSpacing * 0.55 + Math.abs(wobble(x, 9, bumpSpacing * 0.18));
-		const bx = x + wobble(x, 5, bumpSpacing * 0.22);
-		// Hump sits just below the rim so it reads as surface texture.
-		g.ellipse(bx, surfaceY + bh * 0.5, bw, bh).fill({
-			color: mottle2,
-			alpha: 0.45,
-		});
-	}
+		// Body: two horizontal bands for a top-to-bottom darkening gradient.
+		g.rect(sx, surfaceY, sw, midY - surfaceY).fill(bodyTop);
+		g.rect(sx, midY, sw, GAME_HEIGHT - midY).fill(bodyBot);
 
-	// Lit top rim — a thin bright stroke tracing the surface edge.
-	g.rect(0, surfaceY, worldWidth, 2).fill({ color: rimCol, alpha: 0.7 });
-	// A slightly dimmer sub-rim for a subtle two-tone bevel feel.
-	g.rect(0, surfaceY + 2, worldWidth, 1).fill({ color: rimCol, alpha: 0.28 });
+		// Mottled tone patches — irregular ellipses keyed off absolute x.
+		const mottleSpacing = 38;
+		for (let x = sx; x < ex; x += mottleSpacing) {
+			const mc = Math.floor(x / mottleSpacing) % 2 === 0 ? mottle1 : mottle2;
+			const ox = wobble(x, 11, mottleSpacing * 0.3);
+			const oy = wobble(x, 13, stripH * 0.22);
+			const rw =
+				mottleSpacing * 0.55 + Math.abs(wobble(x, 17, mottleSpacing * 0.2));
+			const rh = stripH * 0.28 + Math.abs(wobble(x, 19, stripH * 0.1));
+			g.ellipse(x + ox, surfaceY + stripH * 0.5 + oy, rw, rh).fill({
+				color: mc,
+				alpha: 0.38,
+			});
+		}
 
-	// Moss fringe — sparse small tufts sitting just below the rim.
-	const mossSpacing = 64;
-	for (let x = 8; x < worldWidth - 8; x += mossSpacing) {
-		const mx = x + wobble(x, 23, mossSpacing * 0.35);
-		const mh = 4 + Math.abs(wobble(x, 29, 2));
-		// Two-triangle tuft.
-		g.poly([
-			mx - 4,
-			surfaceY + 3,
-			mx + 4,
-			surfaceY + 3,
-			mx,
-			surfaceY + 3 - mh,
-		]).fill({
-			color: mossCol,
-			alpha: 0.7,
-		});
-		g.poly([
-			mx + 2,
-			surfaceY + 3,
-			mx + 8,
-			surfaceY + 3,
-			mx + 5,
-			surfaceY + 3 - mh * 0.7,
-		]).fill({
-			color: mossLit,
-			alpha: 0.55,
-		});
+		// Surface bump silhouette — small humps just at the surface edge.
+		const bumpSpacing = 52;
+		for (let x = sx; x < ex; x += bumpSpacing) {
+			const bh = 3 + Math.abs(wobble(x, 7, 2.5));
+			const bw =
+				bumpSpacing * 0.55 + Math.abs(wobble(x, 9, bumpSpacing * 0.18));
+			const bx = x + wobble(x, 5, bumpSpacing * 0.22);
+			g.ellipse(bx, surfaceY + bh * 0.5, bw, bh).fill({
+				color: mottle2,
+				alpha: 0.45,
+			});
+		}
+
+		// Lit top rim — a thin bright stroke tracing the surface edge.
+		g.rect(sx, surfaceY, sw, 2).fill({ color: rimCol, alpha: 0.7 });
+		g.rect(sx, surfaceY + 2, sw, 1).fill({ color: rimCol, alpha: 0.28 });
+
+		// Pit-facing edge shadow: a dark vertical gradient on each end that borders
+		// a gap, so the drop reads as a deep void. The world bounds (x=0 and the
+		// far right) are world walls, not pits, so they are left un-shadowed; an
+		// edge is treated as a pit edge when it isn't flush with another span.
+		const edgeW = 14;
+		const leftIsPit = sx > 0.5;
+		const rightIsPit = true; // right ends always border a gap or world end
+		if (leftIsPit) {
+			g.rect(sx, surfaceY, edgeW, stripH).fill({
+				color: edgeDark,
+				alpha: 0.55,
+			});
+			g.rect(sx, surfaceY, edgeW * 0.4, stripH).fill({
+				color: edgeDark,
+				alpha: 0.35,
+			});
+		}
+		if (rightIsPit) {
+			g.rect(ex - edgeW, surfaceY, edgeW, stripH).fill({
+				color: edgeDark,
+				alpha: 0.55,
+			});
+			g.rect(ex - edgeW * 0.4, surfaceY, edgeW * 0.4, stripH).fill({
+				color: edgeDark,
+				alpha: 0.35,
+			});
+		}
+
+		// Moss fringe — sparse small tufts sitting just below the rim.
+		const mossSpacing = 64;
+		for (let x = sx + 8; x < ex - 8; x += mossSpacing) {
+			const mx = x + wobble(x, 23, mossSpacing * 0.35);
+			const mh = 4 + Math.abs(wobble(x, 29, 2));
+			g.poly([
+				mx - 4,
+				surfaceY + 3,
+				mx + 4,
+				surfaceY + 3,
+				mx,
+				surfaceY + 3 - mh,
+			]).fill({ color: mossCol, alpha: 0.7 });
+			g.poly([
+				mx + 2,
+				surfaceY + 3,
+				mx + 8,
+				surfaceY + 3,
+				mx + 5,
+				surfaceY + 3 - mh * 0.7,
+			]).fill({ color: mossLit, alpha: 0.55 });
+		}
 	}
 
 	c.addChild(g);
