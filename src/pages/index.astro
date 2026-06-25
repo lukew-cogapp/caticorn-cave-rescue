@@ -640,20 +640,38 @@ import { EN } from "../game/strings/en";
 	}
 
 	/* Medium screens (≥640px wide) at short stage heights (≤800px viewport height):
-	   compact cards that sit comfortably in ~640–720px stage height. */
+	   moderately sized cards that sit comfortably in ~640–720px stage height. */
 	@media (min-width: 640px) and (max-height: 800px) {
 		.char-card {
-			width: 6.5rem; /* 104px */
+			width: 7.5rem; /* 120px */
 			gap: 0.375rem;
 			padding: 0.5rem;
 		}
 		.char-preview {
-			width: 5.5rem; /* 88px */
-			height: 5.5rem;
+			width: 6.5rem; /* 104px */
+			height: 6.5rem;
 		}
 		.char-name {
-			font-size: 0.8125rem;
-			line-height: 1.125rem;
+			font-size: 0.875rem; /* text-sm */
+			line-height: 1.25rem;
+		}
+	}
+
+	/* Wide screens at short heights: there's plenty of horizontal room, so let the
+	   cards grow back toward full size even when vertical space is tight — this is
+	   the common laptop case (wide but ≤800px tall) that otherwise looked squashed. */
+	@media (min-width: 1024px) and (max-height: 800px) {
+		.char-card {
+			width: 8.5rem; /* 136px */
+			padding: 0.625rem;
+		}
+		.char-preview {
+			width: 7.25rem; /* 116px */
+			height: 7.25rem;
+		}
+		.char-name {
+			font-size: 1rem;
+			line-height: 1.5rem;
 		}
 	}
 

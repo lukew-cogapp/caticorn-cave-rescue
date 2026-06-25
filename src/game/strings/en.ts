@@ -27,7 +27,7 @@ export const EN = {
 		},
 		{
 			icon: "🎵",
-			text: "Boing off trampolines, grab flutes to heal, clear all four caves to win!",
+			text: "Boing off trampolines, grab flutes to heal, clear every cave to win!",
 		},
 	],
 	/** Controls line, kept compact. */
