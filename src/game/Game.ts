@@ -32,7 +32,7 @@ import {
 import { type FluteEntry, type GlowEntry, loadScene } from "./game/scene";
 import { updateWaypoints } from "./game/waypoints";
 import { getThemePack } from "./level/themes";
-import { buildLevels } from "./levels";
+import { buildLevels, buildShowcaseLevels } from "./levels";
 import { Fireflies } from "./systems/Fireflies";
 import { HealthBar } from "./systems/HealthBar";
 import { Motes } from "./systems/Motes";
@@ -205,10 +205,18 @@ export class Game {
 	 * Begin a fresh run with the chosen character. An optional seed regenerates
 	 * the level layouts so each playthrough differs; omit for the default layout.
 	 */
-	start(variant: PlayerVariant, seed?: number, startLevel = 0): void {
+	start(
+		variant: PlayerVariant,
+		seed?: number,
+		startLevel = 0,
+		showcase = false,
+	): void {
 		this.variant = variant;
 		this.audio.resume();
-		if (seed !== undefined) this.levels = buildLevels(seed);
+		// Debug showcase: one level per theme (all of them), so the debug
+		// level-select can jump to any theme. Otherwise a normal seeded run.
+		if (showcase) this.levels = buildShowcaseLevels();
+		else if (seed !== undefined) this.levels = buildLevels(seed);
 		// Debug: allow jumping straight to a level (clamped to the valid range).
 		this.levelIndex = Math.max(0, Math.min(startLevel, this.levels.length - 1));
 		this.state.health = START_HEALTH;

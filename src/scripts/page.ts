@@ -10,7 +10,7 @@
 import { Application } from "pixi.js";
 import { drawPlayer, type PlayerVariant } from "../game/art";
 import { bootGame, CHARACTERS, type HudState } from "../game/caticorn";
-import { buildLevels } from "../game/levels";
+import { buildShowcaseLevels } from "../game/levels";
 import { EN } from "../game/strings/en";
 
 const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
@@ -272,9 +272,9 @@ function beginRun() {
 		});
 	}
 	if (debugStartLevel !== null) {
-		// Debug: deterministic seed so the picked level index is the labelled
-		// theme, and jump straight to it.
-		game.start(chosen, DEBUG_SEED, debugStartLevel);
+		// Debug: showcase mode = one level per theme (all of them), jump straight
+		// to the picked theme's level.
+		game.start(chosen, DEBUG_SEED, debugStartLevel, true);
 	} else {
 		// Fresh seed per run so cave layouts differ each playthrough. Chosen in
 		// the DOM (random allowed here) and handed to the deterministic generator.
@@ -298,7 +298,7 @@ if (new URLSearchParams(location.search).get("debug") === "true") {
 	label.className = "w-full text-center font-bold text-rose-200";
 	label.textContent = "🐛 debug — jump to level";
 	panel.appendChild(label);
-	const levels = buildLevels(DEBUG_SEED);
+	const levels = buildShowcaseLevels(DEBUG_SEED);
 	levels.forEach((lvl, i) => {
 		const b = document.createElement("button");
 		b.type = "button";

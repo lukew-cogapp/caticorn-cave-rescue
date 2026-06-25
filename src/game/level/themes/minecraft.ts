@@ -1,4 +1,9 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawCreeperSkin,
+	drawGhastSkin,
+	drawSpiderSkin,
+} from "../../art/themes/minecraft/monsters";
 import { tint, wobble } from "../../art/util";
 import { GAME_HEIGHT } from "../../types";
 import type { FloorTones, PlatformTones, Rng, ThemePack } from "../theme-pack";
@@ -271,6 +276,8 @@ export const minecraftPack: ThemePack = {
 	// Monster flourish: a faint creeper-green pixelated rim + two square "eye"
 	// hints to suggest the blocky voxel creature style. Subtle enough that the
 	// base monster silhouette reads clearly.
+	// Note: monsterSkin takes priority for all three kinds, so this flourish
+	// path is only reached when monsterSkin is absent or returns null.
 	// -------------------------------------------------------------------------
 
 	monsterFlourish(
@@ -311,5 +318,34 @@ export const minecraftPack: ThemePack = {
 		for (const dx of [-hw + 3, hw - 3]) {
 			f.rect(dx - 1, dotY - 1, 2, 2).fill({ color: 0x5fa83c, alpha: 0.5 });
 		}
+	},
+
+	// -------------------------------------------------------------------------
+	// Monster reskin: full cubic replacements for all three creature slots.
+	// Returns null for unrecognised kinds so the base shape stays as fallback.
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Return a full blocky reskin for crawler / bat / lurker in the Cube Mines
+	 * theme, replacing the base organic shapes entirely:
+	 *
+	 *   - crawler → Creeper (stacked green cube-stack body, classic face).
+	 *   - bat     → Ghast (white floating cube, sad face, tentacle blocks).
+	 *   - lurker  → Spider head (dark cubic head clings to ceiling, red eyes).
+	 *
+	 * All three are pure rects/quads — no curves. Deterministic; no Math.random.
+	 *
+	 * @param kind   - Which monster slot to reskin.
+	 * @param accent - Optional theme accent `#rrggbb` for light shading blend.
+	 * @returns The reskin {@link Container}, or `null` to fall back to the base.
+	 */
+	monsterSkin(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawCreeperSkin(accent);
+		if (kind === "bat") return drawGhastSkin(accent);
+		if (kind === "lurker") return drawSpiderSkin(accent);
+		return null;
 	},
 };

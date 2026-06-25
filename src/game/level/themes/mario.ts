@@ -1,4 +1,9 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawMarioGoomba,
+	drawMarioParatroopa,
+	drawMarioPiranhaPlant,
+} from "../../art/themes/mario/monsters";
 import { tint, wobble } from "../../art/util";
 import { GAME_HEIGHT } from "../../types";
 import type { FloorTones, PlatformTones, Rng, ThemePack } from "../theme-pack";
@@ -297,5 +302,24 @@ export const marioPack: ThemePack = {
 			f.circle(-hw * 0.3, headY - 8, 1.8).fill({ color: 0xffcc00, alpha: 0.7 });
 			f.circle(hw * 0.3, headY - 8, 1.8).fill({ color: 0xffcc00, alpha: 0.7 });
 		}
+	},
+
+	/**
+	 * Full reskins for all three monster kinds in the Sunny Block Plains theme.
+	 * Returns a ready-to-use Container for each kind; returning `null` is not
+	 * needed here because all three are reskinned.
+	 *
+	 * - crawler  → mushroom-capped angry ground walker (stompable flat cap on top)
+	 * - bat      → winged shell flyer (centred, wings fanning left/right)
+	 * - lurker   → ceiling plant with a biting head, grown DOWNWARD from y=0
+	 */
+	monsterSkin(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawMarioGoomba(accent);
+		if (kind === "bat") return drawMarioParatroopa(accent);
+		if (kind === "lurker") return drawMarioPiranhaPlant(accent);
+		return null;
 	},
 };

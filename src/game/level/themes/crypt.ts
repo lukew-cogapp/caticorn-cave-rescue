@@ -1,4 +1,9 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawGhostBat,
+	drawSkeletonCrawler,
+	drawWraithLurker,
+} from "../../art/themes/crypt/monsters";
 import { tint, wobble } from "../../art/util";
 import { GAME_HEIGHT } from "../../types";
 import type { PlatformTones, Rng, ThemePack } from "../theme-pack";
@@ -184,6 +189,26 @@ export const cryptPack: ThemePack = {
 				alpha: 0.45,
 			});
 		}
+	},
+
+	/**
+	 * Full per-kind monster reskins for the Spectre Crypt:
+	 *   - crawler  → shambling skeleton (bony body, skull head, rib hints, leg bones)
+	 *   - bat      → sheet ghost (translucent white draped form, big dark eyes)
+	 *   - lurker   → hanging wraith (tattered dark cloak, glowing eyes downward)
+	 *
+	 * All three keep the base gameplay footprint and origin conventions so existing
+	 * aabb, stomp and poop-drop logic still feels right. Deterministic — no
+	 * `Math.random`. When this hook fires, `monsterFlourish` is skipped entirely.
+	 */
+	monsterSkin(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawSkeletonCrawler(accent);
+		if (kind === "bat") return drawGhostBat(accent);
+		if (kind === "lurker") return drawWraithLurker(accent);
+		return null;
 	},
 
 	monsterFlourish(

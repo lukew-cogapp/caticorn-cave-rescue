@@ -23,6 +23,7 @@ import {
 	type LayoutStyle,
 	pickStyles,
 	pickThemes,
+	THEMES,
 	type ThemeStyle,
 } from "./level/themes";
 import {
@@ -115,6 +116,30 @@ export function buildLevels(baseSeed = 1000): Level[] {
 	}));
 
 	return configs.map((c, i) => makeLevel(c, i, baseSeed, configs.length));
+}
+
+/**
+ * Debug helper: build ONE level for EVERY theme in the pool (in registry order),
+ * at a fixed gentle difficulty, so the debug level-select can jump to any theme
+ * — not just the six a random run happens to pick. Not used in normal play.
+ */
+export function buildShowcaseLevels(baseSeed = 1000): Level[] {
+	return THEMES.map((t, i) => {
+		const c: LevelConfig = {
+			name: t.name,
+			count: 3,
+			speed: 260,
+			monsterCount: 2,
+			bg: t.bg,
+			accent: t.accent,
+			style: pickStyles(makeRng(baseSeed + i), 1)[0],
+			ceilingKinds: t.ceilingKinds,
+			floorKinds: t.floorKinds,
+			ambient: t.ambient,
+			themeStyle: t.style,
+		};
+		return makeLevel(c, i, baseSeed, THEMES.length);
+	});
 }
 
 /**
