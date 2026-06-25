@@ -429,15 +429,6 @@ export function drawExit(): Container {
 	return c;
 }
 
-/**
- * Build a single decor piece at its local origin, scaled by `d.size`. A
- * `stalactite` spikes DOWN from y=0 (caller places it at the ceiling), a
- * `stalagmite` spikes UP from y=0 (floor), and a `crystal` is a faceted glowing
- * gem centred on the origin. The caller is responsible for positioning.
- *
- * @param d - Decor spec providing `kind` and `size`.
- * @returns A Pixi {@link Container} drawn at its local origin.
- */
 /** A bouncy trampoline, bottom-centre origin, ~64px wide. */
 export function drawTrampoline(): Container {
 	const c = new Container();
@@ -509,6 +500,68 @@ export function drawPoop(): Container {
 	return c;
 }
 
+/**
+ * Build a tiny effect particle drawn around its OWN centre (origin 0,0), only a
+ * few pixels across. The Game loop owns its lifetime: scaling, fading and moving
+ * it. This just draws a compact, centred sprite.
+ *
+ * - `"spark"`: a bright gold/white 4-point plus-glint.
+ * - `"note"`: a small warm-gold musical note (notehead + stem).
+ * - `"puff"`: a soft pale-grey smoke puff of overlapping circles.
+ * - `"dust"`: a small brown/tan speck cluster.
+ *
+ * @param kind - Which particle to draw.
+ * @returns A Pixi {@link Container} drawn centred on its origin.
+ */
+export function drawParticle(
+	kind: "spark" | "note" | "puff" | "dust",
+): Container {
+	const c = new Container();
+	const g = new Graphics();
+
+	if (kind === "spark") {
+		// Soft gold halo, then a bright white 4-point plus glint.
+		g.circle(0, 0, 4).fill({ color: 0xffe14d, alpha: 0.35 });
+		g.poly([0, -5, 1, -1, 0, 0, -1, -1]).fill("#fff6c4");
+		g.poly([0, 5, 1, 1, 0, 0, -1, 1]).fill("#fff6c4");
+		g.poly([-5, 0, -1, 1, 0, 0, -1, -1]).fill("#fff6c4");
+		g.poly([5, 0, 1, 1, 0, 0, 1, -1]).fill("#fff6c4");
+		g.circle(0, 0, 1.2).fill("#ffffff");
+	} else if (kind === "note") {
+		// Stem rising from the notehead, with a small flag.
+		g.rect(2, -8, 1.4, 8).fill("#e8b84b");
+		g.moveTo(3.4, -8)
+			.quadraticCurveTo(6, -7, 5, -4)
+			.stroke({ color: "#e8b84b", width: 1.4, cap: "round" });
+		// Filled, slightly tilted notehead.
+		g.ellipse(0, 1, 3, 2.3).fill("#ffd884");
+	} else if (kind === "puff") {
+		// A couple of overlapping pale-grey circles for soft smoke.
+		g.circle(-1.5, 0, 3.5).fill({ color: 0xd6d6de, alpha: 0.7 });
+		g.circle(2, -1, 3).fill({ color: 0xe4e4ea, alpha: 0.7 });
+		g.circle(0.5, 1.5, 2.5).fill({ color: 0xc8c8d2, alpha: 0.7 });
+	} else {
+		// Small brown/tan speck cluster.
+		g.circle(0, 0, 1.6).fill("#8a6a40");
+		g.circle(-2.5, 1, 1.1).fill("#6b4f2e");
+		g.circle(2.5, -1, 1).fill("#a8835a");
+		g.circle(1, 2.5, 0.9).fill("#6b4f2e");
+	}
+
+	c.addChild(g);
+	return c;
+}
+
+/**
+ * Build a single decor piece at its local origin, scaled by `d.size`. The caller
+ * positions it. Kinds: `stalactite` spikes DOWN from y=0 (ceiling); `stalagmite`
+ * spikes UP from y=0 (floor); `crystal` is a small faceted gem centred on the
+ * origin; `pebble`/`mushroom`/`moss` stand on the floor (drawn upward from the
+ * base); `crack` is a faint jagged line drawn downward from the origin for walls.
+ *
+ * @param d - Decor spec providing `kind` and `size`.
+ * @returns A Pixi {@link Container} drawn at its local origin.
+ */
 export function drawDecor(d: Decor): Container {
 	const c = new Container();
 	const g = new Graphics();
@@ -525,9 +578,9 @@ export function drawDecor(d: Decor): Container {
 		// Upward spike from y=0.
 		g.poly([-s * 0.5, 0, s * 0.5, 0, 0, -s * 2]).fill("#43406a");
 		g.poly([0, 0, s * 0.5, 0, 0, -s * 2]).fill("#534f80");
-	} else {
-		// Faceted glowing crystal gem centred on origin.
-		const r = s;
+	} else if (d.kind === "crystal") {
+		// Small embedded faceted gem centred on origin (~half the old size).
+		const r = s * 0.5;
 		g.poly([
 			0,
 			-r,
@@ -544,6 +597,50 @@ export function drawDecor(d: Decor): Container {
 		g.poly([0, -r, r * 0.7, -r * 0.2, 0, r * 0.1]).fill("#a8f0ff");
 		// Bright glint.
 		g.circle(-r * 0.15, -r * 0.35, r * 0.12).fill("#ffffff");
+	} else if (d.kind === "pebble") {
+		// A small cluster of 2-3 rounded rocks sitting on the floor (origin base).
+		g.ellipse(0, -s * 0.35, s * 0.55, s * 0.4).fill("#5b5668");
+		g.ellipse(0, -s * 0.45, s * 0.4, s * 0.28).fill("#6d687c");
+		g.ellipse(-s * 0.55, -s * 0.22, s * 0.32, s * 0.24).fill("#4f4a5c");
+		g.ellipse(s * 0.55, -s * 0.2, s * 0.28, s * 0.2).fill("#4f4a5c");
+	} else if (d.kind === "mushroom") {
+		// Floor-standing cave mushroom: stem, rounded cap, a glowy spot or two.
+		g.roundRect(-s * 0.12, -s * 0.7, s * 0.24, s * 0.7, s * 0.1).fill(
+			"#cfc6b0",
+		);
+		// Cap (dome).
+		g.ellipse(0, -s * 0.7, s * 0.45, s * 0.32).fill("#7a5a8c");
+		g.ellipse(0, -s * 0.76, s * 0.42, s * 0.26).fill("#8f6ba3");
+		// Glowy spots.
+		g.circle(-s * 0.12, -s * 0.74, s * 0.06).fill({
+			color: 0xc8f0ff,
+			alpha: 0.9,
+		});
+		g.circle(s * 0.15, -s * 0.7, s * 0.05).fill({
+			color: 0xc8f0ff,
+			alpha: 0.9,
+		});
+	} else if (d.kind === "moss") {
+		// Low flat patch of mossy fuzz: a few small green tufts hugging the floor.
+		g.ellipse(0, -s * 0.06, s * 0.7, s * 0.14).fill("#2f4a2c");
+		for (const tx of [-s * 0.5, -s * 0.18, s * 0.16, s * 0.5]) {
+			g.poly([tx - s * 0.08, 0, tx + s * 0.08, 0, tx, -s * 0.28]).fill(
+				"#3e6638",
+			);
+		}
+		g.ellipse(-s * 0.1, -s * 0.12, s * 0.25, s * 0.12).fill("#4a7a42");
+	} else {
+		// Thin faint wall crack: a jagged dark line from the origin downward.
+		g.moveTo(0, 0)
+			.lineTo(s * 0.18, s * 0.4)
+			.lineTo(-s * 0.1, s * 0.8)
+			.lineTo(s * 0.14, s * 1.3)
+			.lineTo(-s * 0.05, s * 1.7)
+			.stroke({ color: 0x1d1a28, width: Math.max(1, s * 0.06), alpha: 0.45 });
+		// A small offshoot branch.
+		g.moveTo(-s * 0.1, s * 0.8)
+			.lineTo(-s * 0.4, s * 1.05)
+			.stroke({ color: 0x1d1a28, width: Math.max(1, s * 0.05), alpha: 0.4 });
 	}
 
 	c.addChild(g);

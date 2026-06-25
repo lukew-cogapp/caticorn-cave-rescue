@@ -18,12 +18,39 @@ export abstract class Monster extends Entity {
 	protected readonly speed: number;
 	/** Current travel direction: 1 = right, -1 = left. */
 	protected dir: 1 | -1 = 1;
+	/** Once killed (stomped), the monster stops patrolling and plays a death fall. */
+	private dead = false;
 
 	constructor(view: Container, spec: MonsterSpec) {
 		super(view, { x: spec.x, y: spec.y });
 		this.originX = spec.x;
 		this.range = spec.range;
 		this.speed = spec.speed;
+	}
+
+	/**
+	 * Mark this monster dead (e.g. after a stomp). Stops patrol and switches the
+	 * subclass update() into a sink-spin-fade death animation. Idempotent: calling
+	 * it again has no effect.
+	 */
+	kill(): void {
+		this.dead = true;
+	}
+
+	/** True once {@link kill} has been called; the Game loop skips dead monsters. */
+	isDead(): boolean {
+		return this.dead;
+	}
+
+	/**
+	 * Advance the death animation by dt: sink downward, spin, and fade the view
+	 * toward fully transparent. Subclasses run this from update() while dead.
+	 */
+	protected animateDeath(dt: number): void {
+		this.pos.y += 120 * dt;
+		this.view.rotation += 6 * dt;
+		this.view.alpha = Math.max(0, this.view.alpha - 2 * dt);
+		this.syncView();
 	}
 
 	/**
@@ -54,6 +81,10 @@ export class Crawler extends Monster {
 	protected readonly height = 28;
 
 	update(ctx: WorldContext): void {
+		if (this.isDead()) {
+			this.animateDeath(ctx.dt);
+			return;
+		}
 		// Turn back at a ledge so crawlers never walk out over a pit. Probe a
 		// little ahead of the leading edge for solid ground at foot level.
 		if (!this.groundAhead(ctx.level.platforms)) {
@@ -101,6 +132,10 @@ export class Bat extends Monster {
 	}
 
 	update(ctx: WorldContext): void {
+		if (this.isDead()) {
+			this.animateDeath(ctx.dt);
+			return;
+		}
 		this.patrol(ctx.dt);
 		this.phase += ctx.dt * Bat.BOB_SPEED;
 		this.pos.y = this.baseY + Math.sin(this.phase) * Bat.BOB_AMPLITUDE;

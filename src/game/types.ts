@@ -43,9 +43,20 @@ export interface MonsterSpec extends Vec2 {
 	kind: "crawler" | "bat";
 }
 
+/** A decorative cave element, purely visual. Floor/wall kinds sit on ground or
+ * cling to walls; ceiling kinds hang. */
+export type DecorKind =
+	| "stalactite"
+	| "stalagmite"
+	| "crystal"
+	| "pebble"
+	| "mushroom"
+	| "moss"
+	| "crack";
+
 /** Decorative cave element, purely visual. */
 export interface Decor extends Vec2 {
-	kind: "stalactite" | "stalagmite" | "crystal";
+	kind: DecorKind;
 	size: number;
 }
 

@@ -39,6 +39,13 @@ export class Player extends Entity {
 	/** Ground jump + one air jump. */
 	private static readonly MAX_JUMPS = 2;
 
+	/** Current squash/stretch: 0 = neutral, >0 = stretch tall, <0 = squash flat. */
+	private squash = 0;
+	/** True after a landing this frame (Game reads + clears it for juice fx). */
+	justLanded = false;
+	/** Downward speed at the moment of the last landing (for shake/dust scale). */
+	landImpactSpeed = 0;
+
 	/** Build a Player with its own art so callers don't import art helpers. */
 	static create(spawn: Vec2, variant: PlayerVariant): Player {
 		return new Player(drawPlayer(variant), spawn);
@@ -72,11 +79,13 @@ export class Player extends Entity {
 		// the ground jumps; a second press in the air jumps again. Holding the
 		// key does nothing until released and pressed again.
 		const jumpPressed = jump && !this.jumpHeld;
+		const wasOnGround = this.onGround;
 		if (this.onGround) this.jumpsUsed = 0;
 		if (jumpPressed && this.jumpsUsed < Player.MAX_JUMPS) {
 			this.vel.y = JUMP_VELOCITY;
 			this.onGround = false;
 			this.jumpsUsed += 1;
+			this.squash = 0.5; // pop tall on take-off
 		}
 		this.jumpHeld = jump;
 
@@ -102,6 +111,7 @@ export class Player extends Entity {
 		// One-way platform landing: only while falling, on a downward crossing of
 		// a platform's top edge within its horizontal span (extended by halfWidth).
 		this.onGround = false;
+		const impact = this.vel.y;
 		if (this.vel.y >= 0) {
 			for (const p of level.platforms) {
 				const top = p.y;
@@ -118,8 +128,26 @@ export class Player extends Entity {
 			}
 		}
 
+		// Landing edge: squash flat, scaled by how hard the player hit.
+		this.justLanded = false;
+		if (this.onGround && !wasOnGround && impact > 60) {
+			this.justLanded = true;
+			this.landImpactSpeed = impact;
+			this.squash = -Math.min(0.45, impact / 1400);
+		}
+
+		// Ease squash toward neutral on the ground, or toward a velocity-driven
+		// stretch in the air (juicy arc feel).
+		const target = this.onGround
+			? 0
+			: Math.max(-0.3, Math.min(0.4, -this.vel.y / 1600));
+		this.squash += (target - this.squash) * Math.min(1, dt * 12);
+
 		this.syncView();
 		this.view.scale.x = this.facing;
+		// Apply squash/stretch: positive = taller+thinner, negative = flatter+wider.
+		this.view.scale.y = 1 + this.squash;
+		this.view.scale.x = this.facing * (1 - this.squash * 0.5);
 	}
 
 	/** Reset to a spawn point with zero velocity (used on death/respawn). */

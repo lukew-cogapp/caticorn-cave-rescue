@@ -413,10 +413,17 @@ function placeFlutes(
 }
 
 /**
- * Scatter cave decor across the world. Stalactites hang from the ceiling but are
- * kept OFF forced jump arcs (above a rescue platform's landing zone or directly
- * above a trampoline), since ceiling spikes are lethal. Floor decor only sits on
- * solid ground so nothing floats over a pit.
+ * Scatter cave decor across the world for a furnished-but-not-cluttered feel.
+ *
+ * Three independent passes, all deterministic (seeded rng only):
+ *  - Ceiling: "stalactite" (lethal spikes) kept OFF forced jump arcs (above a
+ *    rescue platform's landing zone or a trampoline's bounce corridor), plus a
+ *    RARE "crystal" accent (a small subtle gem after the art change).
+ *  - Floor: "pebble" / "mushroom" / "moss" placed only on solid ground (never
+ *    over a pit), at low density and emitted for only ~55% of candidates so it
+ *    stays sparse.
+ *  - Walls/background: faint "crack" texture at varying heights up the cave,
+ *    needing no ground since it is purely decorative background.
  */
 function makeDecor(
 	worldWidth: number,
@@ -426,7 +433,6 @@ function makeDecor(
 	rng: () => number,
 ): Decor[] {
 	const decor: Decor[] = [];
-	const kinds: Decor["kind"][] = ["stalactite", "crystal", "stalagmite"];
 
 	/** Horizontal exclusion zones for ceiling spikes (forced jump arcs). */
 	const ceilingNoGo: { x: number; w: number }[] = [];
@@ -445,16 +451,36 @@ function makeDecor(
 	const inCeilingNoGo = (x: number) =>
 		ceilingNoGo.some((z) => x >= z.x && x <= z.x + z.w);
 
+	// --- Ceiling pass: stalactites (lethal) + rare crystal accents. ---
 	for (let x = 60; x < worldWidth - 40; x += 120) {
-		const kind = kinds[Math.floor(rng() * kinds.length)];
 		const dx = x + rng() * 40;
-		if (kind === "stalactite") {
-			if (inCeilingNoGo(dx)) continue; // never over a forced jump arc
-		} else if (!onSolidGround(dx, segs)) {
-			continue; // floor decor needs solid ground
+		// Crystals are now a small subtle gem: emit one only occasionally.
+		if (rng() < 0.12) {
+			decor.push({ x: dx, y: 0, kind: "crystal", size: 10 + rng() * 8 });
+			continue;
 		}
-		decor.push({ x: dx, y: 0, kind, size: 14 + rng() * 22 });
+		if (inCeilingNoGo(dx)) continue; // never hang a spike over a forced jump arc
+		decor.push({ x: dx, y: 0, kind: "stalactite", size: 14 + rng() * 22 });
 	}
+
+	// --- Floor pass: pebble / mushroom / moss on solid ground only, sparse. ---
+	const floorKinds: Decor["kind"][] = ["pebble", "mushroom", "moss"];
+	for (let x = 80; x < worldWidth - 40; x += 110 + rng() * 30) {
+		// Sparse: skip ~45% of candidate spots so ground stays uncluttered.
+		if (rng() > 0.55) continue;
+		const dx = x + rng() * 24;
+		if (!onSolidGround(dx, segs)) continue; // never float over a pit
+		const kind = floorKinds[Math.floor(rng() * floorKinds.length)];
+		decor.push({ x: dx, y: GROUND_Y, kind, size: 8 + rng() * 12 });
+	}
+
+	// --- Wall pass: faint background cracks at varying heights. ---
+	for (let x = 140; x < worldWidth - 60; x += 190 + rng() * 60) {
+		const dx = x + rng() * 40;
+		const y = 40 + rng() * (GROUND_Y - 80 - 40); // ~40 .. GROUND_Y-80
+		decor.push({ x: dx, y, kind: "crack", size: 16 + rng() * 20 });
+	}
+
 	return decor;
 }
 

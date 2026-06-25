@@ -4,6 +4,7 @@ import {
 	drawDecor,
 	drawFlute,
 	drawGhost,
+	drawParticle,
 	drawPoop,
 	drawTrampoline,
 	type PlayerVariant,
@@ -33,6 +34,31 @@ const DEATH_ANIM_TIME = 1.1;
 const POOP_SLOW = 0.35;
 /** Collision box (centred on poop's bottom-centre) used for the slow zone. */
 const POOP_BOX = { halfWidth: 14, height: 22 };
+
+/** Camera follow smoothing factor (per second); higher = snappier. */
+const CAMERA_LERP = 8;
+/** Min downward landing speed (px/sec) that triggers a hard-landing shake. */
+const HARD_LAND_SPEED = 520;
+/** Hard cap on live particles so bursts can never flood the scene. */
+const MAX_PARTICLES = 120;
+/** Lifetime of a spawned particle, in seconds. */
+const PARTICLE_LIFE = 0.5;
+/** Upward hop given to the player after a successful stomp. */
+const STOMP_BOUNCE = -380;
+/**
+ * How far the player's feet may sit below a monster's top and still count as a
+ * stomp rather than a side hit, in pixels.
+ */
+const STOMP_TOLERANCE = 14;
+
+/** A short-lived visual fleck (spark/note/puff/dust) animated by the loop. */
+interface Particle {
+	view: Container;
+	vx: number;
+	vy: number;
+	life: number;
+	maxLife: number;
+}
 
 /**
  * Orchestrates the whole game: owns the Pixi app, builds each level's scene,
@@ -79,6 +105,13 @@ export class Game {
 
 	/** Active death animation: ghost sprite + remaining time, or null. */
 	private death: { ghost: Container; t: number } | null = null;
+
+	/** Live juice particles, advanced + culled every frame. */
+	private particles: Particle[] = [];
+	/** Remaining screen-shake magnitude in px; decays to 0 each frame. */
+	private shakeMag = 0;
+	/** Accumulating phase driving the deterministic shake offset. */
+	private shakePhase = 0;
 
 	private readonly onKeyDown: (e: KeyboardEvent) => void;
 	private readonly onKeyUp: (e: KeyboardEvent) => void;
@@ -166,18 +199,25 @@ export class Game {
 		this.spikes = [];
 		this.flutes = [];
 		this.death = null;
+		// Particle views live in `world`; removeChildren() above detached them, so
+		// just drop the references (their GPU resources go with the cleared world).
+		this.particles = [];
+		this.shakeMag = 0;
 
 		// Background gradient + cave mood.
 		this.world.addChild(drawBackground(this.level.worldWidth, this.level.bg));
 
-		// Decor: stalactites hang from the ceiling, stalagmites/crystals on floor.
-		// Only ceiling stalactites are lethal (you can avoid jumping into them);
-		// floor stalagmites/crystals stay decorative so the ground path is always
-		// walkable and levels remain fair.
+		// Decor placement by kind: stalactites hang from the ceiling, wall cracks
+		// use their own y up the cave wall, everything else sits on the floor.
+		// Only ceiling stalactites are lethal (avoidable); the rest is decorative
+		// so the ground path stays walkable and levels remain fair.
+		const floorY = GAME_HEIGHT - 30;
 		for (const d of this.level.decor) {
 			const g = drawDecor(d);
 			g.x = d.x;
-			g.y = d.kind === "stalactite" ? 0 : GAME_HEIGHT - 30;
+			if (d.kind === "stalactite") g.y = 0;
+			else if (d.kind === "crack") g.y = d.y;
+			else g.y = floorY;
 			this.world.addChild(g);
 
 			if (d.kind === "stalactite") {
@@ -277,10 +317,15 @@ export class Game {
 		const night = (Math.sin(this.dayPhase * 0.18) + 1) / 2; // 0..1
 		this.nightOverlay.alpha = night * 0.55;
 
+		// Particles + shake run every frame regardless of status so bursts finish
+		// even on the win/lose/death frame.
+		this.updateParticles(dt);
+		this.updateShake(dt);
+
 		// Death animation overrides normal play until it finishes.
 		if (this.death) {
 			this.updateDeath(dt);
-			this.updateCamera();
+			this.updateCamera(dt);
 			return;
 		}
 		if (this.status !== "playing") return;
@@ -312,9 +357,22 @@ export class Game {
 					this.player.pos.y = tramp.y;
 					this.player.bounce(TRAMPOLINE_VELOCITY);
 					this.player.view.y = this.player.pos.y;
+					this.spawnBurst(this.player.pos.x, this.player.pos.y, "puff", 8);
+					this.shake(3);
 					break;
 				}
 			}
+		}
+
+		// Hard landing: a fast touchdown kicks up dust and rattles the camera,
+		// scaled by impact speed. justLanded is set fresh by player.update().
+		if (
+			this.player.justLanded &&
+			this.player.landImpactSpeed > HARD_LAND_SPEED
+		) {
+			const t = Math.min(1, this.player.landImpactSpeed / 1400);
+			this.spawnBurst(this.player.pos.x, this.player.pos.y, "dust", 6);
+			this.shake(2 + t * 3);
 		}
 
 		// Poop slow-zone: standing on a poop drags the player's speed down.
@@ -329,9 +387,22 @@ export class Game {
 			}
 		}
 
-		// Hit a monster.
+		// Hit a monster. Dead monsters are inert (skipped). A live monster is a
+		// stomp if the player is falling onto its head, else it's lethal.
 		for (const m of this.monsters) {
-			if (rectsOverlap(pBox, m.aabb())) {
+			if (m.isDead()) continue;
+			const mBox = m.aabb();
+			if (!rectsOverlap(pBox, mBox)) continue;
+			const playerBottom = pBox.y + pBox.h;
+			const stomp =
+				this.player.velY > 0 && playerBottom <= mBox.y + STOMP_TOLERANCE;
+			if (stomp) {
+				m.kill();
+				this.player.bounce(STOMP_BOUNCE);
+				this.spawnBurst(m.pos.x, m.pos.y - mBox.h / 2, "puff", 8);
+				this.shake(3);
+				this.audio.rescue();
+			} else {
 				this.beginDeath();
 				return;
 			}
@@ -353,6 +424,12 @@ export class Game {
 				flute.taken = true;
 				flute.view.visible = false;
 				this.lives += 1;
+				this.spawnBurst(
+					flute.box.x + flute.box.w / 2,
+					flute.box.y + 8,
+					"note",
+					6,
+				);
 				this.audio.rescue();
 				this.emitHud();
 			}
@@ -362,6 +439,8 @@ export class Game {
 		for (const cat of this.caticorns) {
 			if (!cat.rescued && rectsOverlap(pBox, cat.aabb())) {
 				cat.rescue();
+				const cBox = cat.aabb();
+				this.spawnBurst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
 				this.audio.rescue();
 				this.emitHud();
 			}
@@ -376,19 +455,130 @@ export class Game {
 			return;
 		}
 
-		this.updateCamera();
+		this.updateCamera(dt);
 	};
 
-	private updateCamera(): void {
+	/**
+	 * Smoothly follow the player by lerping the world container toward the target
+	 * scroll each frame, then clamping to the level bounds. Frame-rate independent
+	 * via dt so the follow feels the same at any refresh rate.
+	 */
+	private updateCamera(dt: number): void {
 		const targetX = -this.player.pos.x + GAME_WIDTH / 2;
 		const minX = -(this.level.worldWidth - GAME_WIDTH);
-		this.world.x = Math.max(minX, Math.min(0, targetX));
+		const clamped = Math.max(minX, Math.min(0, targetX));
+		this.world.x += (clamped - this.world.x) * Math.min(1, dt * CAMERA_LERP);
+	}
+
+	// --- Juice: screen shake + particles ---
+
+	/**
+	 * Add to the current screen-shake magnitude (px). The largest active impulse
+	 * wins rather than stacking, so chained events stay tasteful.
+	 *
+	 * @param intensity Peak offset in pixels for this shake.
+	 */
+	private shake(intensity: number): void {
+		this.shakeMag = Math.max(this.shakeMag, intensity);
+	}
+
+	/**
+	 * Advance the screen shake: decay the magnitude and drive a deterministic
+	 * offset on the stage from fast sine/cosine of an accumulating phase (no
+	 * Math.random). Resets the stage offset to 0 once the shake has died out.
+	 *
+	 * @param dt Seconds since the last frame.
+	 */
+	private updateShake(dt: number): void {
+		this.shakePhase += dt;
+		if (this.shakeMag <= 0.01) {
+			this.shakeMag = 0;
+			if (this.app.stage.pivot.x !== 0 || this.app.stage.pivot.y !== 0) {
+				this.app.stage.pivot.set(0, 0);
+			}
+			return;
+		}
+		// Pivot shifts the whole stage; using pivot keeps stage.x/y (letterbox
+		// offset from resize) untouched.
+		const ox = Math.sin(this.shakePhase * 90) * this.shakeMag;
+		const oy = Math.cos(this.shakePhase * 70) * this.shakeMag;
+		this.app.stage.pivot.set(ox, oy);
+		// Exponential-ish decay, frame-rate independent.
+		this.shakeMag -= this.shakeMag * Math.min(1, dt * 9);
+	}
+
+	/**
+	 * Spawn `count` particles of `kind` at a world point with a deterministic
+	 * radial spread (index-based angles, never Math.random). Particles are added
+	 * to the world and animated/culled by updateParticles(). Bursts are ignored
+	 * once the live cap is reached so the scene never floods.
+	 *
+	 * @param x World x of the burst origin.
+	 * @param y World y of the burst origin.
+	 * @param kind Visual style passed to drawParticle().
+	 * @param count Number of particles to emit.
+	 */
+	private spawnBurst(
+		x: number,
+		y: number,
+		kind: "spark" | "note" | "puff" | "dust",
+		count: number,
+	): void {
+		if (this.particles.length >= MAX_PARTICLES) return;
+		const n = Math.min(count, MAX_PARTICLES - this.particles.length);
+		for (let i = 0; i < n; i++) {
+			const angle = (i / n) * Math.PI * 2;
+			// Spread speed varies a touch by index for a less uniform ring.
+			const speed = 80 + (i % 3) * 40;
+			const view = drawParticle(kind);
+			view.x = x;
+			view.y = y;
+			this.world.addChild(view);
+			// "note" drifts upward musically; others fan out radially with a slight
+			// upward bias so they read as a pop rather than a flat circle.
+			const vx = Math.cos(angle) * speed;
+			const vy =
+				kind === "note" ? -90 - (i % 3) * 30 : Math.sin(angle) * speed - 60;
+			this.particles.push({
+				view,
+				vx,
+				vy,
+				life: PARTICLE_LIFE,
+				maxLife: PARTICLE_LIFE,
+			});
+		}
+	}
+
+	/**
+	 * Advance every live particle: integrate motion under light gravity, fade and
+	 * shrink over its lifetime, and destroy + remove it when spent.
+	 *
+	 * @param dt Seconds since the last frame.
+	 */
+	private updateParticles(dt: number): void {
+		for (let i = this.particles.length - 1; i >= 0; i--) {
+			const p = this.particles[i];
+			p.life -= dt;
+			if (p.life <= 0) {
+				this.world.removeChild(p.view);
+				p.view.destroy({ children: true });
+				this.particles.splice(i, 1);
+				continue;
+			}
+			p.vy += 420 * dt; // gentle gravity so they arc and settle
+			p.view.x += p.vx * dt;
+			p.view.y += p.vy * dt;
+			const k = p.life / p.maxLife; // 1 -> 0
+			p.view.alpha = k;
+			p.view.scale.set(0.4 + k * 0.6);
+		}
 	}
 
 	// --- Death / lives ---
 
 	private beginDeath(): void {
 		this.audio.hurt();
+		this.shake(7);
 		const ghost = drawGhost(this.variant);
 		ghost.x = this.player.pos.x;
 		ghost.y = this.player.pos.y;
