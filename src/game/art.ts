@@ -894,16 +894,18 @@ export function drawBackground(
 	}
 
 	// Layered cave-wall texture for depth. A darker and a lighter tone, several
-	// rows of overlapping rock blobs at deterministic offsets.
+	// rows of overlapping rock blobs at deterministic offsets. Channels are
+	// clamped to 0-255 so dark backgrounds don't underflow to an invalid colour.
+	const clampByte = (n: number) => Math.max(0, Math.min(255, n));
 	const wallDark = packRgb(
-		lerp(tr, br, 0.6) - 16,
-		lerp(tg, bgc, 0.6) - 16,
-		lerp(tb, bb, 0.6) - 16,
+		clampByte(lerp(tr, br, 0.6) - 16),
+		clampByte(lerp(tg, bgc, 0.6) - 16),
+		clampByte(lerp(tb, bb, 0.6) - 16),
 	);
 	const wallLight = packRgb(
-		lerp(tr, br, 0.45) + 14,
-		lerp(tg, bgc, 0.45) + 14,
-		lerp(tb, bb, 0.45) + 14,
+		clampByte(lerp(tr, br, 0.45) + 14),
+		clampByte(lerp(tg, bgc, 0.45) + 14),
+		clampByte(lerp(tb, bb, 0.45) + 14),
 	);
 
 	// Faint vertical strata to suggest rock layers.
