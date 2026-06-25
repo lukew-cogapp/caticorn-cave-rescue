@@ -99,6 +99,10 @@ export interface HudState {
 	toRescue: number;
 	lives: number;
 	status: GameStatus;
+	/** Total caticorns rescued across the whole run (for the end summary). */
+	totalRescued: number;
+	/** Elapsed run time in seconds (for the end summary). */
+	elapsed: number;
 }
 
 export type HudCallback = (state: HudState) => void;

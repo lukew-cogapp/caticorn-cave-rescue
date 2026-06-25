@@ -27,6 +27,9 @@ export const EN = {
 	lostTitle: "Out of lives",
 	lostSub: (rescued: number) => `You rescued ${rescued} this run. Try again?`,
 	playAgain: "Play again",
+	/** Game-over summary shown on the start screen, e.g. "Game over - 4 caticorns saved in 1:23". */
+	runSummary: (rescued: number, time: string) =>
+		`Game over - ${rescued} caticorn${rescued === 1 ? "" : "s"} saved in ${time}. Pick a hero to try again!`,
 
 	/** Touch control button labels / aria. */
 	moveLeft: "Move left",

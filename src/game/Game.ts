@@ -92,6 +92,10 @@ export class Game {
 
 	private levelIndex = 0;
 	private lives = START_LIVES;
+	/** Caticorns rescued across the whole run (persists across levels). */
+	private totalRescued = 0;
+	/** Elapsed run time in seconds, accumulated while playing. */
+	private elapsed = 0;
 	private status: GameStatus = "playing";
 	/** False until start() loads the first level; gates the simulation loop. */
 	private started = false;
@@ -166,6 +170,8 @@ export class Game {
 		this.audio.resume();
 		this.levelIndex = 0;
 		this.lives = START_LIVES;
+		this.totalRescued = 0;
+		this.elapsed = 0;
 		this.loadLevel(0);
 		this.started = true;
 	}
@@ -344,6 +350,9 @@ export class Game {
 		}
 		if (this.status !== "playing") return;
 
+		// Accumulate run time while actively playing.
+		this.elapsed += dt;
+
 		const ctx: WorldContext = {
 			level: this.level,
 			keys: this.keys,
@@ -453,6 +462,7 @@ export class Game {
 		for (const cat of this.caticorns) {
 			if (!cat.rescued && rectsOverlap(pBox, cat.aabb())) {
 				cat.rescue();
+				this.totalRescued += 1;
 				const cBox = cat.aabb();
 				this.spawnBurst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
 				this.audio.rescue();
@@ -664,6 +674,8 @@ export class Game {
 			toRescue,
 			lives: this.lives,
 			status: this.status,
+			totalRescued: this.totalRescued,
+			elapsed: this.elapsed,
 		});
 	}
 

@@ -566,11 +566,101 @@ export function drawParticle(
 }
 
 /**
+ * Mix two `#rrggbb` hex colours and pack the result, reusing the existing
+ * {@link hexToRgb}/{@link lerp}/{@link packRgb} helpers. `t=0` returns `a`,
+ * `t=1` returns `b`. Lets the decor tone ramps be derived from one base colour.
+ */
+function mixHex(a: string, b: string, t: number): number {
+	const [ar, ag, ab] = hexToRgb(a);
+	const [br, bg, bb] = hexToRgb(b);
+	return packRgb(lerp(ar, br, t), lerp(ag, bg, t), lerp(ab, bb, t));
+}
+
+/**
+ * Deterministic small offset in `[-amp, amp]` keyed off `size` and an integer
+ * `seed`, so repeated decor of the same kind varies without `Math.random`. Uses
+ * the fractional part of a scaled sine as a cheap pseudo-random source.
+ */
+function wobble(size: number, seed: number, amp: number): number {
+	const f = Math.sin(size * 12.9898 + seed * 78.233) * 43758.5453;
+	return ((f - Math.floor(f)) * 2 - 1) * amp;
+}
+
+/**
+ * Draw a tapered, multi-segment cave spire into `g` from a base at y=0 toward a
+ * tip at `(tipX, dir*len)`, where `dir` is `+1` (down, stalactite) or `-1` (up,
+ * stalagmite). Renders a 3-tone ramp (shadow body, lit edge, dark core seam) and
+ * faint mineral bands. `seg` segment count and the per-segment lean give variety.
+ */
+function addSpire(
+	g: Graphics,
+	halfW: number,
+	len: number,
+	dir: number,
+	tipX: number,
+	seg: number,
+	light: string,
+	mid: string,
+	dark: string,
+): void {
+	// Build a slightly wavy left and right edge that converges toward the tip.
+	const left: number[] = [];
+	const right: number[] = [];
+	for (let i = 0; i <= seg; i++) {
+		const t = i / seg;
+		const y = dir * len * t;
+		// Width tapers with a soft curve so the spire bulges near the base.
+		const w = halfW * (1 - t) * (0.85 + 0.15 * (1 - t));
+		const cx = tipX * t + wobble(len + i, i * 7 + 1, halfW * 0.06);
+		left.push(cx - w, y);
+		right.push(cx + w, y);
+	}
+	// Shadowed full silhouette.
+	const poly = left.concat(right.reverse());
+	g.poly(poly).fill(mid);
+	// Lit edge: a slim sliver down the left side using the lighter tone.
+	const lit: number[] = [];
+	for (let i = 0; i <= seg; i++) {
+		const lx = left[i * 2];
+		const ly = left[i * 2 + 1];
+		lit.push(lx, ly);
+	}
+	for (let i = seg; i >= 0; i--) {
+		const t = i / seg;
+		lit.push(left[i * 2] + halfW * 0.28 * (1 - t), left[i * 2 + 1]);
+	}
+	g.poly(lit).fill(light);
+	// Dark core seam on the right for depth.
+	const seam: number[] = [];
+	for (let i = 0; i <= seg; i++) {
+		seam.push(right[i * 2] - halfW * 0.22 * (1 - i / seg), right[i * 2 + 1]);
+	}
+	for (let i = seg; i >= 0; i--) {
+		seam.push(right[i * 2], right[i * 2 + 1]);
+	}
+	g.poly(seam).fill(dark);
+	// Faint mineral banding: a couple of thin cross strokes.
+	for (let b = 1; b <= 2; b++) {
+		const t = b / 3;
+		const y = dir * len * t;
+		const w = halfW * (1 - t) * 0.9;
+		const cx = tipX * t;
+		g.moveTo(cx - w, y)
+			.lineTo(cx + w, y)
+			.stroke({ color: dark, width: Math.max(1, halfW * 0.12), alpha: 0.35 });
+	}
+}
+
+/**
  * Build a single decor piece at its local origin, scaled by `d.size`. The caller
  * positions it. Kinds: `stalactite` spikes DOWN from y=0 (ceiling); `stalagmite`
  * spikes UP from y=0 (floor); `crystal` is a small faceted gem centred on the
  * origin; `pebble`/`mushroom`/`moss` stand on the floor (drawn upward from the
  * base); `crack` is a faint jagged line drawn downward from the origin for walls.
+ *
+ * Gentle deterministic variation (segment counts, facet offsets, tuft layout) is
+ * derived from `d.size` via {@link wobble} so repeated decor never looks
+ * identical, with no `Math.random`/`Date.now`.
  *
  * @param d - Decor spec providing `kind` and `size`.
  * @returns A Pixi {@link Container} drawn at its local origin.
@@ -581,79 +671,161 @@ export function drawDecor(d: Decor): Container {
 	const s = d.size;
 
 	if (d.kind === "stalactite") {
-		// Downward spike from y=0.
-		g.poly([-s * 0.5, 0, s * 0.5, 0, 0, s * 2]).fill("#4a4360");
-		// Lighter left facet for shading.
-		g.poly([-s * 0.5, 0, 0, 0, 0, s * 2]).fill("#5a5275");
-		// Drip highlight near the tip.
-		g.circle(0, s * 1.7, s * 0.08).fill("#9b8fc0");
+		// Tapered multi-segment spire hanging DOWN from the ceiling (y=0).
+		const seg = 3 + (Math.floor(s) % 2); // 3-4 segments from size.
+		const tipX = wobble(s, 3, s * 0.18); // gentle lean.
+		addSpire(g, s * 0.5, s * 2, 1, tipX, seg, "#5f5780", "#4a4360", "#332e47");
+		// Wet drip glint near the tip.
+		g.circle(tipX, s * 1.82, s * 0.07).fill({ color: 0xbdb2e0, alpha: 0.8 });
 	} else if (d.kind === "stalagmite") {
-		// Upward spike from y=0.
-		g.poly([-s * 0.5, 0, s * 0.5, 0, 0, -s * 2]).fill("#43406a");
-		g.poly([0, 0, s * 0.5, 0, 0, -s * 2]).fill("#534f80");
-	} else if (d.kind === "crystal") {
-		// Small embedded faceted gem centred on origin (~half the old size).
-		const r = s * 0.5;
-		g.poly([
-			0,
-			-r,
-			r * 0.7,
-			-r * 0.2,
-			r * 0.45,
-			r,
-			-r * 0.45,
-			r,
-			-r * 0.7,
-			-r * 0.2,
-		]).fill("#48d6ff");
-		// Lighter highlight facet.
-		g.poly([0, -r, r * 0.7, -r * 0.2, 0, r * 0.1]).fill("#a8f0ff");
-		// Bright glint.
-		g.circle(-r * 0.15, -r * 0.35, r * 0.12).fill("#ffffff");
-	} else if (d.kind === "pebble") {
-		// A small cluster of 2-3 rounded rocks sitting on the floor (origin base).
-		g.ellipse(0, -s * 0.35, s * 0.55, s * 0.4).fill("#5b5668");
-		g.ellipse(0, -s * 0.45, s * 0.4, s * 0.28).fill("#6d687c");
-		g.ellipse(-s * 0.55, -s * 0.22, s * 0.32, s * 0.24).fill("#4f4a5c");
-		g.ellipse(s * 0.55, -s * 0.2, s * 0.28, s * 0.2).fill("#4f4a5c");
-	} else if (d.kind === "mushroom") {
-		// Floor-standing cave mushroom: stem, rounded cap, a glowy spot or two.
-		g.roundRect(-s * 0.12, -s * 0.7, s * 0.24, s * 0.7, s * 0.1).fill(
-			"#cfc6b0",
+		// Tapered multi-segment spire rising UP from the floor (y=0).
+		const seg = 3 + (Math.floor(s) % 2);
+		const tipX = wobble(s, 5, s * 0.16);
+		addSpire(
+			g,
+			s * 0.55,
+			s * 2,
+			-1,
+			tipX,
+			seg,
+			"#5b567f",
+			"#43406a",
+			"#2d2a47",
 		);
-		// Cap (dome).
-		g.ellipse(0, -s * 0.7, s * 0.45, s * 0.32).fill("#7a5a8c");
-		g.ellipse(0, -s * 0.76, s * 0.42, s * 0.26).fill("#8f6ba3");
-		// Glowy spots.
-		g.circle(-s * 0.12, -s * 0.74, s * 0.06).fill({
-			color: 0xc8f0ff,
-			alpha: 0.9,
+		// Faint lit cap on the tip.
+		g.circle(tipX, -s * 1.85, s * 0.08).fill({ color: 0x726c95, alpha: 0.6 });
+	} else if (d.kind === "crystal") {
+		// Small faceted gem centred on the origin: light face, dark face, glint.
+		const r = s * 0.5;
+		const off = wobble(s, 2, r * 0.18); // facet asymmetry.
+		const base = "#3aa9cf";
+		const lightFace = mixHex(base, "#dffaff", 0.7);
+		const darkFace = mixHex(base, "#10303f", 0.55);
+		// Soft glow halo.
+		g.circle(0, 0, r * 1.15).fill({ color: 0x8fe6ff, alpha: 0.18 });
+		// Full gem silhouette (elongated hexagon).
+		g.poly([
+			off,
+			-r,
+			r * 0.72,
+			-r * 0.25,
+			r * 0.42,
+			r,
+			-r * 0.42,
+			r,
+			-r * 0.72,
+			-r * 0.25,
+		]).fill(mixHex(base, "#0b2733", 0.15));
+		// Dark right face.
+		g.poly([off, -r, r * 0.72, -r * 0.25, r * 0.42, r, off, r * 0.1]).fill(
+			darkFace,
+		);
+		// Light left face.
+		g.poly([off, -r, off, r * 0.1, -r * 0.42, r, -r * 0.72, -r * 0.25]).fill(
+			lightFace,
+		);
+		// Bright glint on the lit face.
+		g.poly([
+			off - r * 0.12,
+			-r * 0.45,
+			off - r * 0.32,
+			-r * 0.05,
+			off - r * 0.16,
+			-r * 0.08,
+		]).fill({ color: 0xffffff, alpha: 0.9 });
+	} else if (d.kind === "pebble") {
+		// Cluster of 2-4 rounded stones with top-light and a contact shadow.
+		const dark = "#46414f";
+		const mid = "#5b5668";
+		const top = "#6f6a7e";
+		// Soft contact shadow on the floor.
+		g.ellipse(0, -s * 0.04, s * 0.62, s * 0.1).fill({
+			color: 0x000000,
+			alpha: 0.18,
 		});
-		g.circle(s * 0.15, -s * 0.7, s * 0.05).fill({
-			color: 0xc8f0ff,
-			alpha: 0.9,
-		});
-	} else if (d.kind === "moss") {
-		// Low flat patch of mossy fuzz: a few small green tufts hugging the floor.
-		g.ellipse(0, -s * 0.06, s * 0.7, s * 0.14).fill("#2f4a2c");
-		for (const tx of [-s * 0.5, -s * 0.18, s * 0.16, s * 0.5]) {
-			g.poly([tx - s * 0.08, 0, tx + s * 0.08, 0, tx, -s * 0.28]).fill(
-				"#3e6638",
+		const stones: [number, number, number][] = [
+			[0, -s * 0.34, s * 0.42],
+			[-s * 0.52, -s * 0.2, s * 0.3],
+			[s * 0.5, -s * 0.18, s * 0.27],
+			[s * 0.12, -s * 0.5, s * 0.22 + wobble(s, 9, s * 0.05)],
+		];
+		for (let i = 0; i < stones.length; i++) {
+			const [px, py, pr] = stones[i];
+			g.ellipse(px, py, pr, pr * 0.78).fill(i === 0 ? mid : dark);
+			// Top-light highlight on the upper-left of each stone.
+			g.ellipse(px - pr * 0.2, py - pr * 0.32, pr * 0.45, pr * 0.28).fill(
+				i === 0 ? top : mid,
 			);
 		}
-		g.ellipse(-s * 0.1, -s * 0.12, s * 0.25, s * 0.12).fill("#4a7a42");
+	} else if (d.kind === "mushroom") {
+		// Cute cave mushroom: shaded stem, domed capped rim, glowing spots, shadow.
+		const lean = wobble(s, 4, s * 0.06);
+		// Ground shadow.
+		g.ellipse(0, -s * 0.02, s * 0.34, s * 0.08).fill({
+			color: 0x000000,
+			alpha: 0.18,
+		});
+		// Stem with a darker shaded right side.
+		g.roundRect(-s * 0.13, -s * 0.72, s * 0.26, s * 0.72, s * 0.12).fill(
+			"#d7cfba",
+		);
+		g.roundRect(s * 0.0, -s * 0.72, s * 0.13, s * 0.72, s * 0.1).fill(
+			"#bcb39c",
+		);
+		// Cap: a rounded dome with a lighter highlight band and a rim.
+		g.ellipse(lean, -s * 0.7, s * 0.46, s * 0.34).fill("#6f5183");
+		g.ellipse(lean, -s * 0.78, s * 0.42, s * 0.24).fill("#8a66a0");
+		g.ellipse(lean - s * 0.12, -s * 0.84, s * 0.18, s * 0.1).fill("#a07cb8");
+		// Cap rim/underside shadow line.
+		g.ellipse(lean, -s * 0.62, s * 0.44, s * 0.1).fill("#5a4070");
+		// Glowing spots (2-3, count from size).
+		const spots = 2 + (Math.floor(s) % 2);
+		const spotXs = [-s * 0.16, s * 0.16, s * 0.02];
+		for (let i = 0; i < spots; i++) {
+			g.circle(lean + spotXs[i], -s * 0.76 + i * s * 0.04, s * 0.055).fill({
+				color: 0xd2f3ff,
+				alpha: 0.92,
+			});
+		}
+	} else if (d.kind === "moss") {
+		// Soft low clump: layered tufts in two greens with an irregular top edge.
+		const darkG = "#2c4429";
+		const midG = "#3e6638";
+		const litG = "#54834a";
+		// Base pad hugging the floor.
+		g.ellipse(0, -s * 0.05, s * 0.72, s * 0.13).fill(darkG);
+		// Back row of taller tufts (darker).
+		for (const tx of [-s * 0.42, -s * 0.05, s * 0.38]) {
+			const h = s * 0.3 + wobble(s, tx, s * 0.06);
+			g.poly([tx - s * 0.12, -s * 0.04, tx + s * 0.12, -s * 0.04, tx, -h]).fill(
+				midG,
+			);
+		}
+		// Front row of shorter, lighter tufts for a soft layered top edge.
+		for (const tx of [-s * 0.55, -s * 0.22, s * 0.14, s * 0.5]) {
+			const h = s * 0.2 + wobble(s, tx + 1, s * 0.05);
+			g.poly([tx - s * 0.1, 0, tx + s * 0.1, 0, tx, -h]).fill(midG);
+		}
+		// A couple of lit fuzzy highlights.
+		g.ellipse(-s * 0.12, -s * 0.13, s * 0.22, s * 0.1).fill(litG);
+		g.ellipse(s * 0.26, -s * 0.1, s * 0.16, s * 0.08).fill(litG);
 	} else {
-		// Thin faint wall crack: a jagged dark line from the origin downward.
+		// Fine hairline wall fracture: a faint main crack with thin branches.
+		const w = Math.max(0.8, s * 0.04);
+		const jx = wobble(s, 6, s * 0.1); // lateral wander seed.
 		g.moveTo(0, 0)
-			.lineTo(s * 0.18, s * 0.4)
-			.lineTo(-s * 0.1, s * 0.8)
-			.lineTo(s * 0.14, s * 1.3)
-			.lineTo(-s * 0.05, s * 1.7)
-			.stroke({ color: 0x1d1a28, width: Math.max(1, s * 0.06), alpha: 0.45 });
-		// A small offshoot branch.
-		g.moveTo(-s * 0.1, s * 0.8)
-			.lineTo(-s * 0.4, s * 1.05)
-			.stroke({ color: 0x1d1a28, width: Math.max(1, s * 0.05), alpha: 0.4 });
+			.lineTo(s * 0.12 + jx, s * 0.42)
+			.lineTo(-s * 0.06 + jx, s * 0.84)
+			.lineTo(s * 0.1 + jx, s * 1.28)
+			.lineTo(-s * 0.02 + jx, s * 1.7)
+			.stroke({ color: 0x141220, width: w, alpha: 0.32 });
+		// Two thin offshoot branches.
+		g.moveTo(-s * 0.06 + jx, s * 0.84)
+			.lineTo(-s * 0.34 + jx, s * 1.04)
+			.stroke({ color: 0x141220, width: w * 0.7, alpha: 0.26 });
+		g.moveTo(s * 0.1 + jx, s * 1.28)
+			.lineTo(s * 0.32 + jx, s * 1.42)
+			.stroke({ color: 0x141220, width: w * 0.6, alpha: 0.24 });
 	}
 
 	c.addChild(g);
