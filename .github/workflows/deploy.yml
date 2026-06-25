@@ -16,7 +16,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Gate: lint + typecheck + unit tests must pass before we build/deploy, so a
+  # red commit never ships to production.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint + format check
+        run: npx @biomejs/biome check .
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

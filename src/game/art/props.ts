@@ -1,7 +1,7 @@
 import { Container, Graphics, Text } from "pixi.js";
 import { getThemePack, type ThemeStyle } from "../level/themes";
 import { drawLuke } from "./characters";
-import { tint } from "./util";
+import { tint, tintStr } from "./util";
 
 /**
  * Iron manacle clamped on a captive caticorn (freed on contact). Two rounded
@@ -10,12 +10,14 @@ import { tint } from "./util";
  * sized to sit over a small caticorn. Purely decorative — the Game fades it out
  * on rescue.
  */
-export function drawShackle(): Container {
+export function drawShackle(accent?: string): Container {
 	const c = new Container();
 	const g = new Graphics();
-	const iron = "#8a93a3";
-	const ironLight = "#c2c9d4";
-	const ironShadow = "#3f4654";
+	// Iron tones tint gently toward the cave accent so the binding matches the
+	// theme mood (kept subtle so it still reads as metal).
+	const iron = tintStr("#8a93a3", accent, 0.3);
+	const ironLight = tintStr("#c2c9d4", accent, 0.25);
+	const ironShadow = tintStr("#3f4654", accent, 0.3);
 
 	// Slack hanging chain (a few oval links) drawn first so the cuffs sit on top.
 	const links: [number, number][] = [
@@ -66,13 +68,14 @@ export function drawShackle(): Container {
  * padlock on the front. Cool-grey iron palette with highlights/shadows.
  * Bottom-centre origin (~40x50). The Game shatters + fades it on a stomp.
  */
-export function drawCage(): Container {
+export function drawCage(accent?: string): Container {
 	const c = new Container();
 	const g = new Graphics();
-	const bar = "#b9c0cc";
-	const barLight = "#e2e6ee";
-	const barDark = "#727a88";
-	const barShadow = "#4d5360";
+	// Iron bar tones tint gently toward the cave accent to match the theme.
+	const bar = tintStr("#b9c0cc", accent, 0.3);
+	const barLight = tintStr("#e2e6ee", accent, 0.25);
+	const barDark = tintStr("#727a88", accent, 0.3);
+	const barShadow = tintStr("#4d5360", accent, 0.3);
 	const w = 40;
 	const h = 50;
 

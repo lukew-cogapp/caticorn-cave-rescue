@@ -57,7 +57,7 @@ export class Caticorn extends Entity {
 	 */
 	private readonly paletteIndex: number;
 
-	constructor(spec: CaticornSpec) {
+	constructor(spec: CaticornSpec, accent?: string) {
 		super(new Container(), { x: spec.x, y: spec.y });
 		this.containment = spec.containment;
 		// Caged captives get a taller box (covers the cage) so a stomp on the
@@ -76,13 +76,15 @@ export class Caticorn extends Entity {
 		this.cat.scale.set(CATICORN_SCALE);
 		this.view.addChild(this.cat);
 
-		this.binding = spec.containment === "cage" ? drawCage() : drawShackle();
+		// Cage/shackle iron tints toward the cave accent so the binding matches.
+		this.binding =
+			spec.containment === "cage" ? drawCage(accent) : drawShackle(accent);
 		this.view.addChild(this.binding);
 	}
 
-	/** Build a Caticorn from a spec. */
-	static create(spec: CaticornSpec): Caticorn {
-		return new Caticorn(spec);
+	/** Build a Caticorn from a spec, tinting its binding toward the cave accent. */
+	static create(spec: CaticornSpec, accent?: string): Caticorn {
+		return new Caticorn(spec, accent);
 	}
 
 	update(ctx: WorldContext): void {

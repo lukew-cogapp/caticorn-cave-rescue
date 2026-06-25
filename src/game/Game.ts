@@ -353,6 +353,8 @@ export class Game {
 
 		this.status = "playing";
 		this.emitHud();
+		// Brief mood sting for this cave's theme — one-shot, not looping.
+		this.audio.themeSting(this.level.themeStyle);
 	}
 
 	// --- Simulation loop ---

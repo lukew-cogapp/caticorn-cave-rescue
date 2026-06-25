@@ -7,6 +7,8 @@
  * exist. All public methods no-op when there is no AudioContext available.
  */
 
+import type { ThemeStyle } from "./level/themes";
+
 /** Supported oscillator waveforms for chiptune voices. */
 type Wave = "square" | "triangle" | "sawtooth";
 
@@ -345,5 +347,192 @@ export class Chiptune {
 			return;
 		}
 		this.sweep(ctx, freq("D3"), freq("A2"), 0, 0.16, "sawtooth", 0.3);
+	}
+
+	/**
+	 * Short one-shot mood sting played once when a cave loads. Each theme gets a
+	 * 3–5 note motif that evokes its personality — kept quiet (gain ≤ 0.65) and
+	 * brief (≤ 1.2s) so it is a flavourful flourish, not background music.
+	 *
+	 * Motifs at a glance:
+	 * - blossom   : gentle major-pentatonic ascent, triangle (soft, floaty)
+	 * - crystal   : high sparse bell triad, triangle (crystalline shimmer)
+	 * - ice       : high sparse tritone + octave, triangle (cold, thin)
+	 * - crypt     : low minor-second dissonance + descending fifth, square (eerie)
+	 * - grove     : bouncy major thirds on triangle with a square snap (earthy)
+	 * - molten    : low ominous descending square sweep + drone (heavy, rumbling)
+	 * - disco     : funky upbeat major-seventh arpeggio, sawtooth (groovy)
+	 * - tropical  : bright pentatonic skip with a high chirp, triangle (breezy)
+	 * - beach     : gentle rising thirds with a light sparkle, triangle (sunny)
+	 * - halloween : minor-second flutter + descending tritone, square (spooky)
+	 * - cat       : soft two-note "mew" interval, triangle (cute, quiet)
+	 * - minecraft : simple stepwise major ascent, square (blocky, calm)
+	 * - mario     : bright ascending major arpeggio, square (cheerful, classic)
+	 * - candy     : playful high staccato major triad, triangle (sweet, bouncy)
+	 *
+	 * @param style - The {@link ThemeStyle} of the cave just loaded.
+	 */
+	themeSting(style: ThemeStyle): void {
+		const ctx = this.getCtx();
+		if (!ctx) {
+			return;
+		}
+
+		// Each entry: [note, startSeconds, durationSeconds, wave, gain]
+		type NoteSpec = [string, number, number, Wave, number];
+
+		let seq: NoteSpec[];
+
+		switch (style) {
+			case "blossom":
+				// Gentle major-pentatonic ascent — soft + floaty.
+				seq = [
+					["G5", 0.0, 0.14, "triangle", 0.45],
+					["A5", 0.14, 0.14, "triangle", 0.45],
+					["C6", 0.28, 0.14, "triangle", 0.45],
+					["E6", 0.42, 0.45, "triangle", 0.5],
+				];
+				break;
+
+			case "crystal":
+				// Sparse high bell triad — crystalline shimmer.
+				seq = [
+					["E6", 0.0, 0.22, "triangle", 0.4],
+					["G6", 0.18, 0.22, "triangle", 0.35],
+					["B6", 0.36, 0.55, "triangle", 0.3],
+				];
+				break;
+
+			case "ice":
+				// High sparse tritone + octave — cold, thin.
+				seq = [
+					["A5", 0.0, 0.18, "triangle", 0.35],
+					["D#6", 0.2, 0.18, "triangle", 0.3],
+					["A6", 0.44, 0.5, "triangle", 0.25],
+				];
+				break;
+
+			case "crypt":
+				// Low minor-second dissonance then a descending fifth — eerie.
+				seq = [
+					["E3", 0.0, 0.2, "square", 0.55],
+					["F3", 0.16, 0.2, "square", 0.5],
+					["B2", 0.4, 0.55, "square", 0.5],
+				];
+				break;
+
+			case "grove":
+				// Bouncy major-third pair + staccato snap — earthy, cheerful.
+				seq = [
+					["C5", 0.0, 0.12, "triangle", 0.5],
+					["E5", 0.14, 0.12, "triangle", 0.5],
+					["G5", 0.28, 0.12, "triangle", 0.5],
+					["C5", 0.44, 0.1, "square", 0.3],
+					["G5", 0.56, 0.38, "triangle", 0.45],
+				];
+				break;
+
+			case "molten":
+				// Low ominous downward square sweep + held drone — heavy.
+				seq = [
+					["G3", 0.0, 0.22, "square", 0.6],
+					["F3", 0.2, 0.22, "square", 0.55],
+					["C3", 0.42, 0.6, "square", 0.65],
+				];
+				break;
+
+			case "disco":
+				// Funky upbeat major-seventh arpeggio, sawtooth — groovy.
+				seq = [
+					["C5", 0.0, 0.1, "sawtooth", 0.45],
+					["E5", 0.1, 0.1, "sawtooth", 0.45],
+					["G5", 0.2, 0.1, "sawtooth", 0.45],
+					["B5", 0.3, 0.55, "sawtooth", 0.5],
+				];
+				break;
+
+			case "tropical":
+				// Bright pentatonic skip + high chirp — breezy.
+				seq = [
+					["D5", 0.0, 0.14, "triangle", 0.5],
+					["G5", 0.16, 0.14, "triangle", 0.5],
+					["A5", 0.32, 0.14, "triangle", 0.5],
+					["D6", 0.48, 0.45, "triangle", 0.45],
+				];
+				break;
+
+			case "beach":
+				// Gentle rising thirds + soft sparkle — sunny, warm.
+				seq = [
+					["E5", 0.0, 0.16, "triangle", 0.4],
+					["G5", 0.18, 0.16, "triangle", 0.4],
+					["B5", 0.36, 0.16, "triangle", 0.4],
+					["E6", 0.54, 0.45, "triangle", 0.35],
+				];
+				break;
+
+			case "halloween":
+				// Minor-second flutter + descending tritone — spooky.
+				seq = [
+					["A4", 0.0, 0.14, "square", 0.55],
+					["A#4", 0.12, 0.14, "square", 0.5],
+					["A4", 0.24, 0.14, "square", 0.55],
+					["D#4", 0.4, 0.55, "square", 0.5],
+				];
+				break;
+
+			case "cat":
+				// Soft two-note "mew" interval — cute, quiet.
+				seq = [
+					["E5", 0.0, 0.18, "triangle", 0.38],
+					["G5", 0.2, 0.45, "triangle", 0.38],
+				];
+				break;
+
+			case "minecraft":
+				// Simple stepwise major ascent, square — blocky, calm.
+				seq = [
+					["C5", 0.0, 0.14, "square", 0.4],
+					["D5", 0.16, 0.14, "square", 0.4],
+					["E5", 0.32, 0.14, "square", 0.4],
+					["G5", 0.48, 0.45, "square", 0.38],
+				];
+				break;
+
+			case "mario":
+				// Bright ascending major arpeggio — cheerful, classic.
+				seq = [
+					["C5", 0.0, 0.1, "square", 0.55],
+					["E5", 0.1, 0.1, "square", 0.55],
+					["G5", 0.2, 0.1, "square", 0.55],
+					["C6", 0.3, 0.55, "square", 0.6],
+				];
+				break;
+
+			case "candy":
+				// Playful high staccato major triad — sweet, bouncy.
+				seq = [
+					["G6", 0.0, 0.1, "triangle", 0.45],
+					["E6", 0.12, 0.1, "triangle", 0.45],
+					["C6", 0.24, 0.1, "triangle", 0.45],
+					["G6", 0.36, 0.55, "triangle", 0.5],
+				];
+				break;
+
+			default: {
+				// Neutral pleasant three-note major motif for any future theme.
+				const _exhaustive: never = style;
+				void _exhaustive;
+				seq = [
+					["C5", 0.0, 0.14, "triangle", 0.4],
+					["E5", 0.16, 0.14, "triangle", 0.4],
+					["G5", 0.32, 0.45, "triangle", 0.4],
+				];
+			}
+		}
+
+		for (const [n, start, dur, wave, gain] of seq) {
+			this.note(ctx, freq(n), start, dur, wave, gain);
+		}
 	}
 }
