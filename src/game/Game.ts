@@ -1,5 +1,5 @@
 import { type Application, Container, Graphics } from "pixi.js";
-import { drawGhost, type PlayerVariant } from "./art";
+import { type BackgroundLayers, drawGhost, type PlayerVariant } from "./art";
 import { Chiptune } from "./audio";
 import {
 	DEATH_ANIM_TIME,
@@ -27,7 +27,7 @@ import {
 	updateFallingPoops,
 	updatePoops,
 } from "./game/poop";
-import { type FluteEntry, loadScene } from "./game/scene";
+import { type FluteEntry, type GlowEntry, loadScene } from "./game/scene";
 import { updateWaypoints } from "./game/waypoints";
 import { buildLevels } from "./levels";
 import { Fireflies } from "./systems/Fireflies";
@@ -66,6 +66,8 @@ export class Game {
 	private readonly nightOverlay = new Graphics();
 	/** Day/night phase accumulator in seconds. */
 	private dayPhase = 0;
+	/** Ambient-glow pulse phase accumulator in seconds (drives glow breathing). */
+	private glowPhase = 0;
 
 	/** Fixed in-canvas HUD (level / rescued / lives), above the world. */
 	private readonly hud = new Hud();
@@ -126,6 +128,10 @@ export class Game {
 	private spikes: Rect[] = [];
 	/** Flute pickups (extra life): sprite + collision box + drift state. */
 	private flutes: FluteEntry[] = [];
+	/** Parallax background depth layers; scrolled slower than the world per frame. */
+	private bgLayers!: BackgroundLayers;
+	/** Ambient pulsing glow clusters on the far background layer. */
+	private glows: GlowEntry[] = [];
 
 	/** Active death animation: ghost sprite + remaining time, or null. */
 	private death: { ghost: Container; t: number } | null = null;
@@ -196,6 +202,8 @@ export class Game {
 		this.state.score = 0;
 		this.state.songStep = 0;
 		this.elapsed = 0;
+		this.glowPhase = 0;
+		this.dayPhase = 0;
 		this.paused = false;
 		this.pauseOverlay.visible = false;
 		// Clear any keys held from the start screen (e.g. the Space/Enter that
@@ -266,6 +274,8 @@ export class Game {
 		this.flutes = scene.flutes;
 		this.exit = scene.exit;
 		this.player = scene.player;
+		this.bgLayers = scene.bgLayers;
+		this.glows = scene.glows;
 
 		this.status = "playing";
 		this.emitHud();
@@ -298,6 +308,7 @@ export class Game {
 		if (this.death) {
 			this.updateDeath(dt);
 			updateCamera(this.world, this.player.pos, this.level.worldWidth, dt);
+			this.updateParallaxAndGlow(dt);
 			return;
 		}
 		if (this.status !== "playing") return;
@@ -396,6 +407,7 @@ export class Game {
 		}
 
 		updateCamera(this.world, this.player.pos, this.level.worldWidth, dt);
+		this.updateParallaxAndGlow(dt);
 		this.state.waypointTimer = updateWaypoints(
 			this.waypoints,
 			this.caticorns,
@@ -404,6 +416,41 @@ export class Game {
 			dt,
 		);
 	};
+
+	/**
+	 * Scroll the parallax background layers and breathe the ambient glow clusters.
+	 *
+	 * Parallax maths: the gameplay world container is translated to `world.x`
+	 * (≈ `-cameraX`), so gameplay content at local `lx` lands on screen at
+	 * `world.x + lx` — it scrolls at the FULL camera rate. The bg layers also live
+	 * inside `world`, so a layer at offset `layer.x` lands at `world.x + layer.x`.
+	 * To make a layer's net scroll only a fraction `f` of the camera we want its
+	 * on-screen motion to be `-cameraX * f`, i.e. `world.x * f`. Since the world
+	 * already contributes `world.x`, the compensating offset is:
+	 *
+	 *   layer.x = world.x * f - world.x = -world.x * (1 - f)
+	 *
+	 * At camera 0 (`world.x` = 0) all offsets are 0 and everything aligns. As the
+	 * camera pans (`world.x` grows negative) far gets the LARGEST positive offset
+	 * (1 - 0.15 = 0.85) so it lags most (moves least net); near gets the smallest
+	 * (1 - 0.6 = 0.4) so it moves most. far < mid < near < gameplay. Deterministic
+	 * (driven purely by camera position).
+	 */
+	private updateParallaxAndGlow(dt: number): void {
+		const wx = this.world.x;
+		this.bgLayers.far.x = -wx * (1 - 0.15);
+		this.bgLayers.mid.x = -wx * (1 - 0.35);
+		this.bgLayers.near.x = -wx * (1 - 0.6);
+
+		// Breathe the glow clusters from a deterministic phase accumulator (no
+		// wall-clock). Each cluster's own staggered phase keeps them out of sync.
+		this.glowPhase += dt;
+		for (const glow of this.glows) {
+			const pulse = (Math.sin(this.glowPhase * 1.4 + glow.phase) + 1) / 2;
+			glow.view.scale.set(0.92 + pulse * 0.16);
+			glow.view.alpha = 0.75 + pulse * 0.25;
+		}
+	}
 
 	// --- Damage / death ---
 

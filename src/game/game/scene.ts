@@ -1,9 +1,13 @@
-import { type Container, Graphics } from "pixi.js";
+import type { Container } from "pixi.js";
 import {
-	drawBackground,
+	type BackgroundLayers,
+	drawBackgroundLayers,
 	drawDecor,
+	drawFloorStrip,
 	drawFlute,
+	drawGlowCluster,
 	drawGrassBlades,
+	drawPlatform,
 	drawTrampoline,
 	type PlayerVariant,
 } from "../art";
@@ -25,6 +29,17 @@ export interface FluteEntry {
 	phase: number;
 }
 
+/**
+ * A pulsing ambient glow cluster in the far background: its Container plus the
+ * phase offset that staggers its breathing relative to the others. The cluster
+ * geometry is static; the tick drives `view.scale`/`view.alpha` from a shared
+ * elapsed accumulator + this `phase`.
+ */
+export interface GlowEntry {
+	view: Container;
+	phase: number;
+}
+
 /** The freshly-built per-level scene: entities + collision geometry. */
 export interface Scene {
 	caticorns: Caticorn[];
@@ -34,14 +49,19 @@ export interface Scene {
 	flutes: FluteEntry[];
 	exit: Exit;
 	player: Player;
+	/** Parallax background depth layers; the tick scrolls each at its own rate. */
+	bgLayers: BackgroundLayers;
+	/** Pulsing ambient glow clusters parented to the far background layer. */
+	glows: GlowEntry[];
 }
 
 /**
- * Build a level's scene into the (already-cleared) world container in the exact
- * order Game previously inlined: background, fireflies, decor (registering
+ * Build a level's scene into the (already-cleared) world container, back to
+ * front: parallax background layers (far/mid/near) with ambient glow clusters
+ * on the far layer, the drawn floor strip, fireflies, decor (registering
  * stalactite spikes), platforms + grass, trampolines, flutes, exit, caticorns,
- * monsters, then the player + floating health bar on top. Iteration order is
- * preserved so deterministic spawning is unchanged.
+ * monsters, then the player + floating health bar on top. Entity iteration order
+ * is preserved so deterministic spawning is unchanged.
  */
 export function loadScene(
 	world: Container,
@@ -55,10 +75,48 @@ export function loadScene(
 	const trampolines: Rect[] = [];
 	const spikes: Rect[] = [];
 	const flutes: FluteEntry[] = [];
+	const glows: GlowEntry[] = [];
 
-	// Background gradient + cave mood, then ambient fireflies in front of it
-	// but behind gameplay.
-	world.addChild(drawBackground(level.worldWidth, level.bg));
+	// Parallax cave background: three depth layers added back-to-front (far, mid,
+	// near) so everything else renders on top. The tick offsets each layer's x
+	// each frame to scroll them slower than the gameplay world (see Game.tick).
+	const bgLayers = drawBackgroundLayers(
+		level.worldWidth,
+		level.bg,
+		level.themeAccent,
+	);
+	world.addChild(bgLayers.far);
+	world.addChild(bgLayers.mid);
+	world.addChild(bgLayers.near);
+
+	// Ambient pulsing glow clusters, parented to the FAR layer so they sit
+	// deepest and inherit its slow parallax. Placed deterministically: positions,
+	// radius and colour are derived from worldWidth + a fixed colour palette (no
+	// Math.random). Phase is staggered per index so they breathe out of sync.
+	const glowColors = [0x6fe3ff, 0x8f7bff, 0x6cff9e, 0xffd27b];
+	const glowCount = Math.min(
+		4,
+		Math.max(2, Math.floor(level.worldWidth / 900)),
+	);
+	for (let i = 0; i < glowCount; i++) {
+		// Spread clusters across the world width with a margin on each side.
+		const frac = (i + 1) / (glowCount + 1);
+		const gx = level.worldWidth * frac;
+		const gy = GAME_HEIGHT * 0.4 + (i % 2) * GAME_HEIGHT * 0.18;
+		const radius = 46 + (i % 3) * 14;
+		const view = drawGlowCluster(radius, glowColors[i % glowColors.length], 0);
+		view.x = gx;
+		view.y = gy;
+		bgLayers.far.addChild(view);
+		// Stagger the breathing phase so clusters pulse independently.
+		glows.push({ view, phase: i * 1.9 });
+	}
+
+	// Drawn ground strip along the bottom (surface sits at GAME_HEIGHT - 30,
+	// handled internally), above the background but below decor + gameplay.
+	world.addChild(drawFloorStrip(level.worldWidth, level.themeAccent));
+
+	// Ambient fireflies in front of the backdrop but behind gameplay.
 	fireflies.spawn(level.worldWidth, 14);
 	world.addChild(fireflies.view);
 
@@ -87,14 +145,13 @@ export function loadScene(
 	}
 
 	// Platforms (drawn here; entities don't own static geometry). Some get a
-	// grassy top for variety.
+	// grassy top for variety. drawPlatform draws at local 0,0 = top-left, exactly
+	// w x h (no overhang), so the collision rect is unchanged.
 	for (const p of level.platforms) {
-		world.addChild(
-			new Graphics()
-				.roundRect(p.x, p.y, p.w, p.h, 4)
-				.fill("#4a3a63")
-				.stroke({ color: "#6d5a8c", width: 2 }),
-		);
+		const plat = drawPlatform(p.w, p.h, level.themeAccent);
+		plat.x = p.x;
+		plat.y = p.y;
+		world.addChild(plat);
 		if (p.grass) {
 			const grass = drawGrassBlades(p.w);
 			grass.x = p.x;
@@ -154,5 +211,15 @@ export function loadScene(
 	world.addChild(player.view);
 	world.addChild(healthBar.view);
 
-	return { caticorns, monsters, trampolines, spikes, flutes, exit, player };
+	return {
+		caticorns,
+		monsters,
+		trampolines,
+		spikes,
+		flutes,
+		exit,
+		player,
+		bgLayers,
+		glows,
+	};
 }
