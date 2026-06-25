@@ -1,3 +1,4 @@
+import { MOLTEN_SPIKE_DENSITY } from "./const";
 import { makeRng } from "./level/prng";
 import {
 	DOUBLE_JUMP_CAP,
@@ -245,6 +246,7 @@ function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
 		trampolines,
 		c.ceilingKinds,
 		c.floorKinds,
+		c.themeStyle,
 		rng,
 	);
 
@@ -387,6 +389,7 @@ function placeFlutes(
  *
  * @param ceilingKinds Theme's non-lethal ceiling accent kinds (weighted).
  * @param floorKinds Theme's floor decor kinds (weighted).
+ * @param themeStyle Theme identity — molten caves get a denser spike pass.
  */
 function makeDecor(
 	worldWidth: number,
@@ -395,6 +398,7 @@ function makeDecor(
 	trampolines: TrampolineSpec[],
 	ceilingKinds: DecorKind[],
 	floorKinds: DecorKind[],
+	themeStyle: ThemeStyle,
 	rng: () => number,
 ): Decor[] {
 	const decor: Decor[] = [];
@@ -435,6 +439,25 @@ function makeDecor(
 		}
 		if (inCeilingNoGo(dx)) continue; // never hang a spike over a forced jump arc
 		decor.push({ x: dx, y: 0, kind: "stalactite", size: 12 + rng() * 22 });
+	}
+
+	// --- Molten extra-spike pass: a second ceiling scan at a higher probability. ---
+	// Molten caves are more hazard-dense: we run an additional candidate pass with
+	// MOLTEN_SPIKE_DENSITY probability. The ceilingNoGo exclusion zones still apply,
+	// so forced jump arcs stay clear and the reachability invariant is unaffected.
+	if (themeStyle === "molten") {
+		for (let x = 50; x < worldWidth - 30; x += 78 + rng() * 26) {
+			const dx = x + rng() * 30;
+			if (inCeilingNoGo(dx)) continue;
+			if (rng() < MOLTEN_SPIKE_DENSITY) {
+				decor.push({
+					x: dx,
+					y: 0,
+					kind: "stalactite",
+					size: 12 + rng() * 22,
+				});
+			}
+		}
 	}
 
 	// --- Floor pass: theme floor decor on solid ground only. ---

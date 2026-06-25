@@ -16,6 +16,39 @@ export const ACCEL = 2600;
 /** Horizontal deceleration applied as friction when no input (px/sec^2). */
 export const FRICTION = 2200;
 
+/**
+ * Friction multiplier applied in ice caves. Scales down the base {@link FRICTION}
+ * so the player decelerates much more slowly, giving a slippery sliding feel.
+ * Only deceleration is affected — ACCEL, max speed, jump and gravity are unchanged,
+ * so the reachability solver's jump-height and gap-clearance assumptions remain valid.
+ */
+export const ICE_FRICTION_SCALE = 0.35;
+
+/**
+ * Upward velocity (px/sec, negative = up) given to the player when they land
+ * on the ground in a grove cave. Kept small so it is a pleasant springiness,
+ * never strong enough to fling the player into a ceiling spike. Reach-neutral:
+ * the solver checks jump height off the ground using JUMP_VELOCITY, not
+ * incidental bounce contacts.
+ */
+export const GROVE_BOUNCE_VELOCITY = -110;
+
+/**
+ * Minimum downward speed (px/sec) required for the grove ground bounce to
+ * trigger. Prevents a tiny float-in from spawning an unwanted hop.
+ */
+export const GROVE_BOUNCE_MIN_SPEED = 80;
+
+/**
+ * Probability (0..1) of placing a stalactite spike at each ceiling candidate
+ * position in molten caves, in addition to the base spike pass. Higher than the
+ * normal pass probability so molten feels hazard-dense. The existing
+ * {@link ceilingNoGo} exclusion zones still apply, keeping forced jump arcs clear.
+ * Reach-neutral: spikes are lethal obstacles, not physics constraints, so the
+ * solver's gap/height checks are unaffected.
+ */
+export const MOLTEN_SPIKE_DENSITY = 0.65;
+
 /** Grace window after leaving a ledge where a ground jump still fires (s). */
 export const COYOTE_TIME = 0.1;
 /** Window before landing within which a jump press is remembered + fired (s). */

@@ -7,6 +7,9 @@ import {
 	COYOTE_TIME,
 	FALL_GRAVITY,
 	FRICTION,
+	GROVE_BOUNCE_MIN_SPEED,
+	GROVE_BOUNCE_VELOCITY,
+	ICE_FRICTION_SCALE,
 	IDLE_BREATH_AMPLITUDE,
 	IDLE_BREATH_SPEED,
 	IDLE_SPEED_THRESHOLD,
@@ -17,6 +20,7 @@ import {
 import {
 	GAME_HEIGHT,
 	GRAVITY,
+	GROUND_Y,
 	JUMP_VELOCITY,
 	PLAYER_H,
 	PLAYER_W,
@@ -93,7 +97,9 @@ export class Player extends Entity {
 			this.vel.x = Math.min(this.vel.x + ACCEL * dt, maxSpeed);
 		} else {
 			// No (or conflicting) input: decay toward zero, clamping through zero.
-			const decay = FRICTION * dt;
+			// Ice caves get a reduced friction scale so the player slides further.
+			const frictionScale = level.themeStyle === "ice" ? ICE_FRICTION_SCALE : 1;
+			const decay = FRICTION * frictionScale * dt;
 			if (this.vel.x > 0) {
 				this.vel.x = Math.max(0, this.vel.x - decay);
 			} else if (this.vel.x < 0) {
@@ -170,8 +176,11 @@ export class Player extends Entity {
 
 		// One-way platform landing: only while falling, on a downward crossing of
 		// a platform's top edge within its horizontal span (extended by halfWidth).
+		// For grove caves we also track whether the landing is on the ground floor
+		// specifically (not a raised rescue platform) so the bounce applies correctly.
 		this.onGround = false;
 		const impact = this.vel.y;
+		let landedOnGround = false;
 		if (this.vel.y >= 0) {
 			for (const p of level.platforms) {
 				const top = p.y;
@@ -183,6 +192,9 @@ export class Player extends Entity {
 					this.pos.y = top;
 					this.vel.y = 0;
 					this.onGround = true;
+					// Ground-level platforms have y === GROUND_Y; raised rescue
+					// platforms have y < GROUND_Y. We only bounce the ground floor.
+					if (p.y >= GROUND_Y) landedOnGround = true;
 					break;
 				}
 			}
@@ -195,6 +207,24 @@ export class Player extends Entity {
 			this.landImpactSpeed = impact;
 			this.landedFromDoubleJump = this.doubleJumpedThisAir;
 			this.squash = -Math.min(0.45, impact / 1400);
+		}
+
+		// Grove bouncy ground: landing on the ground floor in a grove cave gives a
+		// small springy hop. Only fires on ground-level (not raised platforms), only
+		// with enough downward speed, and only when not poop-affected (can't jump).
+		// The velocity is much weaker than a trampoline, so it cannot fling the
+		// player into ceiling spikes, and the solver's gap/height invariants stay
+		// unaffected (GROVE_BOUNCE_VELOCITY < |JUMP_VELOCITY| / 2).
+		if (
+			landedOnGround &&
+			!wasOnGround &&
+			impact >= GROVE_BOUNCE_MIN_SPEED &&
+			!this.poopAffected &&
+			level.themeStyle === "grove"
+		) {
+			this.vel.y = GROVE_BOUNCE_VELOCITY;
+			this.onGround = false;
+			this.cuttable = false;
 		}
 
 		// Ease squash toward neutral on the ground, or toward a velocity-driven
