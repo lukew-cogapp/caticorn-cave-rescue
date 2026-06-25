@@ -4,8 +4,11 @@ import { EN } from "../game/strings/en";
 ---
 
 <Layout title={EN.title} description={EN.metaDescription}>
-	<main class="px-6 py-8">
-		<header class="mx-auto flex max-w-3xl flex-col items-center text-center">
+	<main id="page" class="px-6 py-8">
+		<header
+			id="page-header"
+			class="mx-auto flex max-w-3xl flex-col items-center text-center"
+		>
 			<canvas
 				id="title-sprite"
 				width="64"
@@ -308,6 +311,17 @@ import { EN } from "../game/strings/en";
 		runSummary.classList.add("hidden");
 		startScreen.classList.add("hidden");
 		startScreen.classList.remove("flex");
+		// On touch devices, use this Start tap (a user gesture) to go fullscreen
+		// and lock landscape for a proper mobile play experience.
+		if (
+			isTouch &&
+			!document.fullscreenElement &&
+			typeof stage.requestFullscreen === "function"
+		) {
+			stage.requestFullscreen().catch(() => {
+				/* unsupported (iOS Safari) — fall back to the 80vh canvas */
+			});
+		}
 		// Fresh seed per run so cave layouts differ each playthrough. Chosen in
 		// the DOM (random allowed here) and handed to the deterministic generator.
 		game.start(chosen, Math.floor(Math.random() * 1e9) + 1);
@@ -455,6 +469,25 @@ import { EN } from "../game/strings/en";
 	@media (orientation: portrait) and (pointer: coarse) {
 		#rotate-hint {
 			display: flex;
+		}
+	}
+
+	/* Short landscape (phones held sideways): drop the page header + padding so
+	   the game frame fills the viewport and the start screen isn't pushed off
+	   the bottom. The in-canvas title already carries the branding. */
+	@media (max-height: 520px) and (orientation: landscape) {
+		#page {
+			padding: 0;
+		}
+		#page-header {
+			display: none;
+		}
+		#game-stage {
+			margin-top: 0;
+			max-width: 100vw !important;
+			height: 100vh;
+			border-radius: 0;
+			border-width: 0;
 		}
 	}
 </style>

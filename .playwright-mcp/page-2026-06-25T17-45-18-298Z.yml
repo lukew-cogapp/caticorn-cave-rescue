@@ -1,0 +1,16 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - heading "Caticorn Cave Rescue" [level=1] [ref=e5]
+    - paragraph [ref=e6]: Free every caticorn, then reach the glowing exit. Mind the pits!
+  - generic [ref=e7]:
+    - generic [ref=e9]:
+      - heading "Caticorn Cave Rescue" [level=2] [ref=e11]
+      - paragraph [ref=e12]: Choose your hero
+      - button "Start rescue" [disabled] [ref=e13]
+      - generic [ref=e14]:
+        - paragraph [ref=e15]: "Move: Arrow keys / WASD · Jump (double-jump): Up / Space / W · Pause: P"
+        - paragraph [ref=e16]: Free every caticorn (stomp cages, touch shackled ones), then reach the glowing exit.
+        - paragraph [ref=e17]: Dodge baddies (or stomp them), mind the pits, lethal ceiling spikes, and falling poop.
+        - paragraph [ref=e18]: Bounce on trampolines, grab flutes to heal, and clear all caves to win.
+    - button "Toggle fullscreen" [ref=e19]: Fullscreen
+  - paragraph [ref=e20]: "Controls: Arrow keys / WASD to move, Up / Space / W to jump. Bounce on trampolines, dodge baddies, avoid the poop!"

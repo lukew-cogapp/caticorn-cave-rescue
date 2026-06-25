@@ -1,0 +1,4 @@
+[    1416ms] [ERROR] Failed to load resource: the server responded with a status of 504 (Outdated Optimize Dep) @ http://localhost:4321/node_modules/.vite/deps/browserAll-BxNGYRrA.js?v=357b38c3:0
+[    1418ms] Failed to fetch dynamically imported module: http://localhost:4321/node_modules/.vite/deps/browserAll-BxNGYRrA.js?v=357b38c3
+[   42163ms] [ERROR] Failed to load resource: the server responded with a status of 504 (Outdated Optimize Dep) @ http://localhost:4321/node_modules/.vite/deps/browserAll-BxNGYRrA.js?v=357b38c3:0
+[   42167ms] Failed to fetch dynamically imported module: http://localhost:4321/node_modules/.vite/deps/browserAll-BxNGYRrA.js?v=357b38c3
