@@ -35,16 +35,20 @@ export class Hud {
 			fontWeight: "bold" as const,
 			fontFamily: "system-ui, sans-serif",
 		};
-		this.level = new Text({ text: "", style });
+		// Render text at high resolution so it stays crisp when the stage is
+		// scaled up in fullscreen (otherwise the glyph bitmap upscales = blurry).
+		const mk = () => new Text({ text: "", style, resolution: 4 });
+
+		this.level = mk();
 		this.level.x = 14;
 		this.level.y = 13;
 
-		this.rescued = new Text({ text: "", style });
+		this.rescued = mk();
 		this.rescued.anchor.set(0.5, 0);
 		this.rescued.x = GAME_WIDTH / 2;
 		this.rescued.y = 13;
 
-		this.lives = new Text({ text: "", style });
+		this.lives = mk();
 		this.lives.y = 13;
 
 		this.view.addChild(this.level, this.rescued, this.lives);

@@ -458,6 +458,8 @@ export function drawExit(): Container {
 
 	const label = new Text({
 		text: "EXIT",
+		// High resolution keeps the label crisp when the stage scales up.
+		resolution: 4,
 		style: {
 			fontFamily: "Arial",
 			fontSize: 12,
