@@ -1,4 +1,4 @@
-import { type Application, Container, Graphics } from "pixi.js";
+import { type Application, Container, Graphics, Text } from "pixi.js";
 import {
 	drawBackground,
 	drawDecor,
@@ -129,6 +129,10 @@ export class Game {
 	private status: GameStatus = "playing";
 	/** False until start() loads the first level; gates the simulation loop. */
 	private started = false;
+	/** True while paused (P key). Freezes the sim; shows a paused overlay. */
+	private paused = false;
+	/** Dimming overlay + "Paused" label shown while paused. */
+	private readonly pauseOverlay = new Container();
 
 	private level!: Level;
 	private player!: Player;
@@ -178,11 +182,19 @@ export class Game {
 		// screen position (added to stage, not the scrolling world).
 		this.app.stage.addChild(this.hud.view);
 
+		this.buildPauseOverlay();
+		this.app.stage.addChild(this.pauseOverlay);
+
 		this.onKeyDown = (e) => {
 			if (
 				["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)
 			) {
 				e.preventDefault();
+			}
+			// P toggles pause (only mid-run); it isn't a movement key.
+			if ((e.key === "p" || e.key === "P") && this.started) {
+				this.togglePause();
+				return;
 			}
 			this.keys.add(e.key);
 		};
@@ -191,6 +203,39 @@ export class Game {
 		window.addEventListener("keyup", this.onKeyUp);
 
 		this.app.ticker.add(this.tick);
+	}
+
+	/** Build the (hidden) paused overlay: a dim screen + "Paused" label. */
+	private buildPauseOverlay(): void {
+		const dim = new Graphics()
+			.rect(0, 0, GAME_WIDTH, GAME_HEIGHT)
+			.fill({ color: 0x000000, alpha: 0.5 });
+		const label = new Text({
+			text: "Paused\nPress P to resume",
+			resolution: 4,
+			style: {
+				fill: "#ffe9b8",
+				fontSize: 22,
+				fontWeight: "bold",
+				align: "center",
+				fontFamily: "system-ui, sans-serif",
+			},
+		});
+		label.anchor.set(0.5);
+		label.x = GAME_WIDTH / 2;
+		label.y = GAME_HEIGHT / 2;
+		this.pauseOverlay.addChild(dim, label);
+		this.pauseOverlay.eventMode = "none";
+		this.pauseOverlay.visible = false;
+	}
+
+	/** Toggle pause (P key). Freezes the sim and shows the overlay. */
+	private togglePause(): void {
+		if (this.status !== "playing") return;
+		this.paused = !this.paused;
+		this.pauseOverlay.visible = this.paused;
+		// Drop held keys so movement doesn't resume mid-press after unpausing.
+		this.keys.clear();
 	}
 
 	/**
@@ -206,6 +251,8 @@ export class Game {
 		this.totalRescued = 0;
 		this.score = 0;
 		this.elapsed = 0;
+		this.paused = false;
+		this.pauseOverlay.visible = false;
 		// Clear any keys held from the start screen (e.g. the Space/Enter that
 		// began the run) so the player doesn't jump on the first frame.
 		this.keys.clear();
@@ -479,6 +526,8 @@ export class Game {
 	private readonly tick = (): void => {
 		// Idle until the player picks a character and start() loads a level.
 		if (!this.started) return;
+		// Paused: freeze everything (no sim, no juice) until unpaused.
+		if (this.paused) return;
 		const dt = Math.min(this.app.ticker.deltaMS / 1000, 0.05);
 
 		// Day/night cycle: a slow wave drives the night overlay alpha. Uses
@@ -535,7 +584,8 @@ export class Game {
 		// Float the health bar above the player's head.
 		this.healthBar.update(
 			this.player.pos.x,
-			this.player.pos.y - PLAYER_H - 14,
+			// Clear the head + horn/hat (which reach well above PLAYER_H).
+			this.player.pos.y - PLAYER_H - 34,
 			this.health,
 		);
 
