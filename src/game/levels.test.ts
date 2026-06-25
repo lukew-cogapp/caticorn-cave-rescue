@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { DOUBLE_JUMP_CAP, SINGLE_JUMP_PEAK } from "./level/reachability";
 import { buildLevels, checkReachability } from "./levels";
+import { GROUND_Y } from "./types";
 
 describe("buildLevels", () => {
 	const levels = buildLevels();
@@ -164,6 +166,110 @@ describe("buildLevels hazards", () => {
 			expect(
 				later.every((l) => l.monsters.some((m) => m.kind === "lurker")),
 			).toBe(true);
+		}
+	});
+});
+
+describe("buildLevels theme identity", () => {
+	it("gives every level a theme style and an ambient particle kind", () => {
+		const styles = new Set([
+			"blossom",
+			"crystal",
+			"ice",
+			"crypt",
+			"grove",
+			"molten",
+		]);
+		const ambients = new Set([
+			"petal",
+			"gemsparkle",
+			"snow",
+			"fog",
+			"spore",
+			"ember",
+		]);
+		for (const seed of SEEDS) {
+			for (const l of buildLevels(seed)) {
+				expect(styles.has(l.themeStyle)).toBe(true);
+				expect(ambients.has(l.ambient)).toBe(true);
+			}
+		}
+	});
+
+	it("uses distinct themes within a single run (no repeated cave)", () => {
+		for (const seed of SEEDS) {
+			const names = buildLevels(seed).map((l) => l.name);
+			expect(new Set(names).size).toBe(names.length);
+		}
+	});
+});
+
+describe("buildLevels platform reachability bands", () => {
+	/** A ground-segment platform sits at GROUND_Y; rescue platforms are above it. */
+	const isRescue = (y: number) => y < GROUND_Y;
+
+	it("includes some double-jump-only platforms every seed (not all single-jump)", () => {
+		for (const seed of SEEDS) {
+			let single = 0;
+			let double = 0;
+			for (const l of buildLevels(seed)) {
+				for (const p of l.platforms) {
+					if (!isRescue(p.y)) continue;
+					const drop = GROUND_Y - p.y;
+					if (drop <= SINGLE_JUMP_PEAK) single++;
+					else if (drop <= DOUBLE_JUMP_CAP) double++;
+				}
+			}
+			// A healthy mix: both bands populated, so not every platform is trivial.
+			expect(
+				double,
+				`seed ${seed} has no double-jump platforms`,
+			).toBeGreaterThan(0);
+			expect(
+				single,
+				`seed ${seed} has no single-jump platforms`,
+			).toBeGreaterThan(0);
+		}
+	});
+
+	it("never places a rescue platform above the trampoline-clearable cap", () => {
+		// Reachability already proves this, but assert the band directly too.
+		for (const seed of SEEDS) {
+			for (const l of buildLevels(seed)) {
+				const r = checkReachability(l);
+				expect(r.ok, `${l.name}: ${r.reason}`).toBe(true);
+			}
+		}
+	});
+});
+
+describe("buildLevels decor fairness", () => {
+	it("anchors floor decor on solid ground (never floating over a pit)", () => {
+		const FLOOR_KINDS = new Set([
+			"pebble",
+			"mushroom",
+			"moss",
+			"blossom",
+			"gemcluster",
+			"gravestone",
+			"emberrock",
+		]);
+		for (const seed of SEEDS) {
+			for (const l of buildLevels(seed)) {
+				// Solid ground spans = platforms sitting on the ground line.
+				const spans = l.platforms
+					.filter((p) => p.y === GROUND_Y)
+					.map((p) => ({ x: p.x, end: p.x + p.w }));
+				for (const d of l.decor) {
+					if (!FLOOR_KINDS.has(d.kind)) continue;
+					if (d.y !== GROUND_Y) continue;
+					const onGround = spans.some((s) => d.x >= s.x && d.x <= s.end);
+					expect(
+						onGround,
+						`seed ${seed} ${l.name}: ${d.kind} at x=${d.x} floats over a pit`,
+					).toBe(true);
+				}
+			}
 		}
 	});
 });

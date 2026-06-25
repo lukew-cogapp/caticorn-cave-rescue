@@ -175,37 +175,33 @@ import { EN } from "../game/strings/en";
 				</button>
 			</div>
 
-			<!-- Touch controls: left-thumb move pad + right-thumb jump.
-			     Shown only on touch devices (toggled via the `touch` class). -->
+			<!-- Touch controls: a full-stage overlay split into a left MOVE zone (a
+			     floating virtual joystick spawns where you press) and a right JUMP
+			     zone (tap/hold anywhere). Shown only on touch devices. The joystick
+			     base + nub are positioned by script at the touch point. -->
 			<div
 				id="touch-controls"
-				class="pointer-events-none absolute inset-x-0 bottom-0 z-30 hidden items-end justify-between p-4 select-none"
+				class="pointer-events-none absolute inset-0 z-30 hidden select-none"
 			>
-				<!-- Move pad: the two buttons sit flush in one pad so a thumb can slide
-				     continuously between left and right (handled in script). -->
+				<!-- Left half: move zone (virtual joystick). -->
 				<div
-					id="touch-move"
-					class="pointer-events-auto flex touch-none overflow-hidden rounded-full"
+					id="touch-move-zone"
+					class="pointer-events-auto absolute inset-y-0 left-0 w-1/2 touch-none"
+					aria-label={EN.moveLeft}
 				>
-					<button
-						id="btn-left"
-						type="button"
-						aria-label={EN.moveLeft}
-						class="flex h-16 w-16 items-center justify-center bg-stone-900/55 text-2xl font-bold text-amber-50 backdrop-blur active:bg-stone-900/80"
-					>‹</button>
-					<button
-						id="btn-right"
-						type="button"
-						aria-label={EN.moveRight}
-						class="flex h-16 w-16 items-center justify-center border-l border-white/15 bg-stone-900/55 text-2xl font-bold text-amber-50 backdrop-blur active:bg-stone-900/80"
-					>›</button>
 				</div>
-				<button
-					id="btn-jump"
-					type="button"
+				<!-- Right half: jump zone. nipplejs renders the joystick into the left
+				     zone itself, so no custom stick markup is needed. -->
+				<div
+					id="touch-jump-zone"
+					class="pointer-events-auto absolute inset-y-0 right-0 flex w-1/2 touch-none items-end justify-end p-4"
 					aria-label={EN.jump}
-					class="pointer-events-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-400/80 text-sm font-extrabold text-stone-900 backdrop-blur active:bg-amber-300"
-				>JUMP</button>
+				>
+					<span
+						class="rounded-full bg-amber-400/25 px-4 py-2 text-xs font-bold text-amber-100/80"
+						>{EN.jump}</span
+					>
+				</div>
 			</div>
 		</div>
 
@@ -265,8 +261,10 @@ import { EN } from "../game/strings/en";
 		if (s.status === "playing") {
 			overlay.classList.add("hidden");
 			overlay.classList.remove("flex");
+			setTouchControls(true);
 			return;
 		}
+		setTouchControls(false);
 		if (s.status === "lost") {
 			// Out of lives: go back to the character-select screen with a summary
 			// of how the run went, so the player can pick a hero and try again.
@@ -459,9 +457,12 @@ import { EN } from "../game/strings/en";
 		"touch-controls",
 	) as HTMLDivElement;
 	const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-	if (isTouch) {
-		touchControls.classList.remove("hidden");
-		touchControls.classList.add("flex");
+	// The touch overlay covers the whole stage, so only enable it DURING play
+	// (otherwise its zones would swallow start-screen / overlay taps). Toggled by
+	// renderHud on status changes.
+	function setTouchControls(on: boolean) {
+		if (!isTouch) return;
+		touchControls.classList.toggle("hidden", !on);
 	}
 
 	// iOS Safari doesn't support the Fullscreen API on non-video elements, so the
@@ -482,14 +483,17 @@ import { EN } from "../game/strings/en";
 		window.dispatchEvent(new KeyboardEvent("keyup", { key }));
 	}
 
-	// Movement pad (left/right): slide-aware. A single touch can glide between the
-	// left and right buttons and the held direction follows the thumb, because we
-	// hit-test the touch point each move rather than binding to whichever button
-	// the touch happened to start on. Holds ArrowLeft, ArrowRight, or neither.
-	const btnLeft = document.getElementById("btn-left");
-	const btnRight = document.getElementById("btn-right");
-	let heldDir: "ArrowLeft" | "ArrowRight" | null = null;
+	// --- Virtual joystick (left zone) + jump (right zone) ---
+	// nipplejs renders a dynamic thumbstick: touch anywhere in the left zone and a
+	// stick spawns under the thumb. We map its horizontal angle to held left/right
+	// (a digital direction, so over-dragging never cancels movement — the engine
+	// moves at a fixed speed). The right zone is a plain jump hold. Move + jump are
+	// independent fingers (multi-touch). nipplejs is imported dynamically so it
+	// only loads on touch devices.
+	const moveZone = document.getElementById("touch-move-zone") as HTMLDivElement;
+	const jumpZone = document.getElementById("touch-jump-zone") as HTMLDivElement;
 
+	let heldDir: "ArrowLeft" | "ArrowRight" | null = null;
 	function setDir(dir: "ArrowLeft" | "ArrowRight" | null) {
 		if (dir === heldDir) return;
 		if (heldDir) keyUp(heldDir);
@@ -497,62 +501,51 @@ import { EN } from "../game/strings/en";
 		if (heldDir) keyDown(heldDir);
 	}
 
-	// Which move button (if any) sits under a client point.
-	function dirAtPoint(x: number, y: number): "ArrowLeft" | "ArrowRight" | null {
-		const el = document.elementFromPoint(x, y);
-		if (el && btnLeft?.contains(el)) return "ArrowLeft";
-		if (el && btnRight?.contains(el)) return "ArrowRight";
-		return null;
+	if (isTouch) {
+		const nipplejs = (await import("nipplejs")).default;
+		const manager = nipplejs.create({
+			zone: moveZone,
+			mode: "dynamic",
+			color: "#fbbf24",
+			size: 110,
+			threshold: 0.25, // fraction of the radius before a direction registers
+			restJoystick: true,
+		});
+		// nipplejs's `.on` overloads are over-narrow for our event names, so bind
+		// through a loosened handle.
+		const on = (manager as unknown as {
+			on(ev: string, cb: (...args: unknown[]) => void): void;
+		}).on.bind(manager);
+		// Map stick movement to a digital left/right. Using the live vector each
+		// move means dragging further only sustains the direction, never stops it.
+		on("move", (...args: unknown[]) => {
+			const data = args[1] as { vector?: { x: number; y: number } };
+			const x = data?.vector?.x ?? 0;
+			if (x <= -0.4) setDir("ArrowLeft");
+			else if (x >= 0.4) setDir("ArrowRight");
+			else setDir(null);
+		});
+		on("end", () => setDir(null));
 	}
 
-	function onMovePadTouch(e: TouchEvent) {
-		e.preventDefault();
-		// Track the first touch on the pad; ignore extra fingers (e.g. jump).
-		const t = e.touches[0];
-		setDir(t ? dirAtPoint(t.clientX, t.clientY) : null);
-	}
-	function onMovePadEnd(e: TouchEvent) {
-		e.preventDefault();
-		// Release only when no touches remain over the pad.
-		if (e.touches.length === 0) setDir(null);
-		else {
-			const t = e.touches[0];
-			setDir(dirAtPoint(t.clientX, t.clientY));
-		}
-	}
-
-	const movePad = document.getElementById("touch-move");
-	if (movePad) {
-		movePad.addEventListener("touchstart", onMovePadTouch, { passive: false });
-		movePad.addEventListener("touchmove", onMovePadTouch, { passive: false });
-		movePad.addEventListener("touchend", onMovePadEnd, { passive: false });
-		movePad.addEventListener("touchcancel", onMovePadEnd, { passive: false });
-		// Mouse fallback for desktop testing.
-		btnLeft?.addEventListener("mousedown", () => setDir("ArrowLeft"));
-		btnRight?.addEventListener("mousedown", () => setDir("ArrowRight"));
-		window.addEventListener("mouseup", () => setDir(null));
-	}
-
-	// Jump button: simple hold (independent finger).
-	function holdButton(id: string, key: string) {
-		const btn = document.getElementById(id);
-		if (!btn) return;
-		const press = (e: Event) => {
+	// Jump zone: any touch on the right half holds jump until released.
+	let jumpTouches = 0;
+	jumpZone.addEventListener(
+		"touchstart",
+		(e: TouchEvent) => {
 			e.preventDefault();
-			keyDown(key);
-		};
-		const release = (e: Event) => {
-			e.preventDefault();
-			keyUp(key);
-		};
-		btn.addEventListener("touchstart", press, { passive: false });
-		btn.addEventListener("touchend", release, { passive: false });
-		btn.addEventListener("touchcancel", release, { passive: false });
-		btn.addEventListener("mousedown", press);
-		btn.addEventListener("mouseup", release);
-		btn.addEventListener("mouseleave", release);
+			jumpTouches += e.changedTouches.length;
+			keyDown("ArrowUp");
+		},
+		{ passive: false },
+	);
+	function onJumpEnd(e: TouchEvent) {
+		e.preventDefault();
+		jumpTouches = Math.max(0, jumpTouches - e.changedTouches.length);
+		if (jumpTouches === 0) keyUp("ArrowUp");
 	}
-	holdButton("btn-jump", "ArrowUp");
+	jumpZone.addEventListener("touchend", onJumpEnd, { passive: false });
+	jumpZone.addEventListener("touchcancel", onJumpEnd, { passive: false });
 
 	// --- Fullscreen ---
 	function syncFullscreenSize() {
