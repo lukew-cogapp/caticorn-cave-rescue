@@ -57,6 +57,48 @@ const GROUND_EDGE = 16;
 /** Player half-width used by the landing logic in Player.ts (PLAYER_W / 2). */
 const PLAYER_HALF = 17;
 
+/** How rescue platforms are arranged across a level. */
+type LayoutStyle = "steps" | "zigzag" | "towers" | "gauntlet";
+
+/** The pool of layout styles a seed can pick from, in difficulty-ish order. */
+const LAYOUT_STYLES: LayoutStyle[] = ["steps", "zigzag", "towers", "gauntlet"];
+
+/**
+ * A cave theme: a readable mood palette. `bg` is the background gradient (top,
+ * bottom); `accent` recolours monsters + decor toward the mood. All backgrounds
+ * are kept dark enough that the bright caticorns pop.
+ */
+interface CaveTheme {
+	/** Mood name, used as the level name. */
+	name: string;
+	/** Background gradient `[top, bottom]` as `#rrggbb`. */
+	bg: [string, string];
+	/** Scenery accent `#rrggbb` for tinting monsters + decor. */
+	accent: string;
+}
+
+/**
+ * The cave theme pool. A run seed picks (without immediate repeats) from these,
+ * so different seeds yield visibly different cave sets. Backgrounds are dark; the
+ * accent is a more saturated mood colour decor/monsters blend toward.
+ */
+const THEMES: CaveTheme[] = [
+	{ name: "Amethyst Cavern", bg: ["#2a1a3e", "#160d22"], accent: "#9b6bff" },
+	{ name: "Deep Ocean Grotto", bg: ["#0f2c46", "#081726"], accent: "#2f8fd6" },
+	{ name: "Molten Hollow", bg: ["#3a1410", "#1c0806"], accent: "#ff6a2b" },
+	{ name: "Mossy Overgrowth", bg: ["#16321f", "#0a1a11"], accent: "#4caf50" },
+	{ name: "Glacier Vault", bg: ["#16314a", "#0c1b2c"], accent: "#7fd6ff" },
+	{ name: "Sulphur Pits", bg: ["#33300f", "#1a1808"], accent: "#d8c23a" },
+	{ name: "Bone Ash Catacomb", bg: ["#2c2630", "#16131a"], accent: "#c9bfae" },
+	{
+		name: "Bioluminescent Reef",
+		bg: ["#0c2e30", "#061818"],
+		accent: "#3ad6c8",
+	},
+	{ name: "Crimson Marrow", bg: ["#3a1224", "#1c0913"], accent: "#e23b6a" },
+	{ name: "Verdigris Mine", bg: ["#10302e", "#081a18"], accent: "#3fb6a0" },
+];
+
 interface LevelConfig {
 	name: string;
 	/** Number of rescue platforms (caticorns) to place. */
@@ -65,8 +107,10 @@ interface LevelConfig {
 	speed: number;
 	monsterCount: number;
 	bg: [string, string];
+	/** Theme accent `#rrggbb` for tinting monsters + decor. */
+	accent: string;
 	/** Layout style: how rescue platforms are arranged. */
-	style: "steps" | "zigzag" | "towers" | "gauntlet";
+	style: LayoutStyle;
 }
 
 /** A solid floor span on the ground line, used to gate hazards/decor. */
@@ -95,46 +139,75 @@ function makeRng(seed: number): () => number {
  * asserts (and, where needed, nudges) the layout so it is provably reachable
  * under the documented physics budget before being returned.
  *
- * @param baseSeed Seed for the deterministic layout PRNG. Pass a fresh value per
- *   run for varied layouts; omit (default) for a stable layout (used by tests).
+ * The difficulty ramp is fixed (caticorn/monster counts + speed rise by level),
+ * but the THEME (name, background, accent) and layout STYLE of each level are
+ * picked from the seed, so each seed produces a visibly different, but equally
+ * fair, set of four caves.
+ *
+ * @param baseSeed Seed for the deterministic theme + layout PRNG. Pass a fresh
+ *   value per run for varied caves; omit (default) for a stable set (used by
+ *   tests).
  */
 export function buildLevels(baseSeed = 1000): Level[] {
-	const configs: LevelConfig[] = [
-		{
-			name: "The Shallows",
-			count: 2,
-			speed: 220,
-			monsterCount: 1,
-			bg: ["#2a1a3e", "#1a1124"],
-			style: "steps",
-		},
-		{
-			name: "Crystal Hollow",
-			count: 3,
-			speed: 250,
-			monsterCount: 2,
-			bg: ["#13314a", "#0c1a2e"],
-			style: "zigzag",
-		},
-		{
-			name: "Bat Roost",
-			count: 4,
-			speed: 285,
-			monsterCount: 3,
-			bg: ["#3a1430", "#1d0a1a"],
-			style: "towers",
-		},
-		{
-			name: "Dragon's Maw",
-			count: 5,
-			speed: 320,
-			monsterCount: 4,
-			bg: ["#451a12", "#220a08"],
-			style: "gauntlet",
-		},
+	// Fixed per-level difficulty ramp; theme/style come from the seed below.
+	const ramp = [
+		{ count: 2, speed: 220, monsterCount: 1 },
+		{ count: 3, speed: 250, monsterCount: 2 },
+		{ count: 4, speed: 285, monsterCount: 3 },
+		{ count: 5, speed: 320, monsterCount: 4 },
 	];
 
+	// One PRNG off the base seed drives theme + style selection for the whole run
+	// (kept separate from each level's layout PRNG so layouts stay stable).
+	const pick = makeRng(baseSeed * 2654435761);
+	const themes = pickThemes(pick, ramp.length);
+	const styles = pickStyles(pick, ramp.length);
+
+	const configs: LevelConfig[] = ramp.map((r, i) => ({
+		name: themes[i].name,
+		count: r.count,
+		speed: r.speed,
+		monsterCount: r.monsterCount,
+		bg: themes[i].bg,
+		accent: themes[i].accent,
+		style: styles[i],
+	}));
+
 	return configs.map((c, i) => makeLevel(c, i, baseSeed));
+}
+
+/**
+ * Pick `n` cave themes from {@link THEMES} using the run PRNG, avoiding an
+ * immediate repeat so consecutive caves always look distinct. Deterministic for
+ * a given seed; different seeds give different themes and order.
+ */
+function pickThemes(rng: () => number, n: number): CaveTheme[] {
+	const out: CaveTheme[] = [];
+	let prev = -1;
+	for (let i = 0; i < n; i++) {
+		let idx = Math.floor(rng() * THEMES.length) % THEMES.length;
+		if (idx === prev && THEMES.length > 1) idx = (idx + 1) % THEMES.length;
+		out.push(THEMES[idx]);
+		prev = idx;
+	}
+	return out;
+}
+
+/**
+ * Pick `n` layout styles from {@link LAYOUT_STYLES} using the run PRNG, avoiding
+ * an immediate repeat for layout variety. Deterministic for a given seed.
+ */
+function pickStyles(rng: () => number, n: number): LayoutStyle[] {
+	const out: LayoutStyle[] = [];
+	let prev = -1;
+	for (let i = 0; i < n; i++) {
+		let idx = Math.floor(rng() * LAYOUT_STYLES.length) % LAYOUT_STYLES.length;
+		if (idx === prev && LAYOUT_STYLES.length > 1)
+			idx = (idx + 1) % LAYOUT_STYLES.length;
+		out.push(LAYOUT_STYLES[idx]);
+		prev = idx;
+	}
+	return out;
 }
 
 /** Max horizontal distance a single jump covers at the given speed. */
@@ -282,6 +355,7 @@ function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
 		flutes,
 		decor,
 		bg: c.bg,
+		themeAccent: c.accent,
 		moveSpeed: c.speed,
 		spawn: { x: 60, y: GROUND_Y },
 		exit: { x: worldWidth - 60, y: GROUND_Y },

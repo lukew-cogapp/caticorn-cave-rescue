@@ -270,7 +270,7 @@ export class Game {
 		// so the ground path stays walkable and levels remain fair.
 		const floorY = GAME_HEIGHT - 30;
 		for (const d of this.level.decor) {
-			const g = drawDecor(d);
+			const g = drawDecor(d, this.level.themeAccent);
 			g.x = d.x;
 			if (d.kind === "stalactite") g.y = 0;
 			else if (d.kind === "crack") g.y = d.y;
@@ -346,7 +346,7 @@ export class Game {
 
 		// Monsters.
 		for (const spec of this.level.monsters) {
-			const m = createMonster(spec);
+			const m = createMonster(spec, this.level.themeAccent);
 			this.monsters.push(m);
 			this.world.addChild(m.view);
 		}

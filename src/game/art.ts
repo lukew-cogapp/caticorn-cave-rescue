@@ -60,7 +60,14 @@ function addHorn(g: Graphics, baseX: number, baseY: number): void {
 }
 
 /** Per-variant hat id drawn above/between the ears. `"none"` draws nothing. */
-type HatId = "none" | "cap" | "acorn" | "sunhat" | "witch";
+type HatId =
+	| "none"
+	| "cap"
+	| "acorn"
+	| "sunhat"
+	| "witch"
+	| "strawberry"
+	| "crystal";
 
 /**
  * Draw a small, cute per-character hat into `g`, sitting above/between the ears
@@ -120,6 +127,41 @@ function addHat(g: Graphics, hat: HatId): void {
 		// Hat band + star buckle.
 		g.rect(-9, -57, 16, 3).fill("#15121a");
 		g.star(-1, -56, 4, 2.2).fill("#9b6bff");
+	} else if (hat === "strawberry") {
+		// Aubrey: a plump strawberry sitting on her head.
+		// Berry body (rounded, pointing down).
+		g.moveTo(-9, -58)
+			.quadraticCurveTo(-11, -50, 0, -47)
+			.quadraticCurveTo(11, -50, 9, -58)
+			.quadraticCurveTo(0, -63, -9, -58)
+			.fill("#ff3b5c");
+		// Glossy highlight.
+		g.ellipse(-3, -57, 3, 2).fill("#ff8095");
+		// Seeds.
+		for (const [sx, sy] of [
+			[-4, -54],
+			[3, -55],
+			[0, -51],
+			[5, -52],
+			[-6, -51],
+		] as const) {
+			g.circle(sx, sy, 0.7).fill("#ffe14d");
+		}
+		// Green leafy calyx on top.
+		for (let i = -2; i <= 2; i++) {
+			g.poly([i * 3, -60, i * 3 - 2, -62, i * 3 + 2, -62]).fill("#46c66a");
+		}
+		g.poly([-2, -60, 2, -60, 0, -66]).fill("#34a052"); // little stem
+	} else if (hat === "crystal") {
+		// Hallie: a cluster of purple crystals.
+		g.poly([-7, -54, -3, -54, -5, -66]).fill("#7a4fc0");
+		g.poly([-3, -54, -3, -54, -5, -66]).fill("#9b6bff");
+		g.poly([-1, -54, 5, -54, 2, -70]).fill("#8a5cd0");
+		g.poly([2, -70, 5, -54, 3, -56]).fill("#b388ff"); // lit facet
+		g.poly([4, -54, 9, -54, 7, -63]).fill("#7a4fc0");
+		// Glints.
+		g.circle(1, -64, 1).fill("#e6d8ff");
+		g.circle(6, -60, 0.8).fill("#e6d8ff");
 	}
 }
 
@@ -276,7 +318,7 @@ const PLAYER_PALETTES: Record<
 		body: "#4f8cff",
 		bodyDark: "#3a6bd0",
 		mane: ["#7ad0ff", "#ff9ec4", "#c8e6ff", "#ff5d8f"],
-		hat: "cap",
+		hat: "strawberry",
 	},
 	quinn: {
 		body: "#46c66a",
@@ -298,7 +340,7 @@ const PLAYER_PALETTES: Record<
 		mane: ["#1a1620", "#2a242e", "#1a1620", "#3b3340"],
 		shirt: "#15121a",
 		skull: true,
-		hat: "witch",
+		hat: "crystal",
 	},
 };
 
@@ -577,30 +619,42 @@ export function drawGhost(variant: PlayerVariant): Container {
  * ~22 tall body) with pointy ears, fangs and glowing eyes. Both face right with
  * a bottom-centre origin.
  *
+ * When a theme `accent` (`#rrggbb`) is given, the monster's body/wing/spike fills
+ * are blended toward it so it reads as part of the level's mood; the eyes, fangs,
+ * highlights and mouths are left intact so it stays readable. Omitting `accent`
+ * keeps the original colours, so existing call sites are unaffected.
+ *
  * @param kind - Which baddie to draw.
+ * @param accent - Optional theme accent `#rrggbb` to recolour the body toward.
  * @returns A Pixi {@link Container} ready to position at a world point.
  */
-export function drawMonster(kind: "crawler" | "bat" | "lurker"): Container {
+export function drawMonster(
+	kind: "crawler" | "bat" | "lurker",
+	accent?: string,
+): Container {
 	const c = new Container();
 	const g = new Graphics();
+	// Body fills blend a fair way toward the accent; outlines a touch less.
+	const body = (hex: string) => tint(hex, accent, 0.45);
+	const line = (hex: string) => tint(hex, accent, 0.3);
 
 	if (kind === "lurker") {
 		// Ceiling-dweller: clings overhead and drops poop. Drawn growing DOWNWARD
 		// from its anchor (origin at the ceiling attach point, body below y=0) so
 		// the caller positions it flush to the ceiling.
 		// Gooey attach blob + drip.
-		g.ellipse(0, 4, 14, 6).fill("#3a2a1a");
+		g.ellipse(0, 4, 14, 6).fill(body("#3a2a1a"));
 		// Squat sack body hanging below.
-		g.roundRect(-15, 6, 30, 22, 11).fill("#4a3520");
-		g.ellipse(0, 18, 9, 7).fill("#5c4327"); // belly highlight
+		g.roundRect(-15, 6, 30, 22, 11).fill(body("#4a3520"));
+		g.ellipse(0, 18, 9, 7).fill(body("#5c4327")); // belly highlight
 		// Stubby clinging arms.
 		g.moveTo(-13, 9)
 			.lineTo(-20, 4)
-			.stroke({ color: "#3a2a1a", width: 3, cap: "round" });
+			.stroke({ color: line("#3a2a1a"), width: 3, cap: "round" });
 		g.moveTo(13, 9)
 			.lineTo(20, 4)
-			.stroke({ color: "#3a2a1a", width: 3, cap: "round" });
-		// Sleepy-mean eyes (looking down).
+			.stroke({ color: line("#3a2a1a"), width: 3, cap: "round" });
+		// Sleepy-mean eyes (looking down) — left untinted so they pop.
 		g.circle(-5, 16, 4).fill("#cfe34d");
 		g.circle(6, 16, 4).fill("#cfe34d");
 		g.circle(-5, 18, 1.8).fill("#1b1230");
@@ -618,15 +672,15 @@ export function drawMonster(kind: "crawler" | "bat" | "lurker"): Container {
 		for (const lx of [-10, -3, 4, 11]) {
 			g.moveTo(lx, -6)
 				.lineTo(lx, 0)
-				.stroke({ color: "#1b1230", width: 2.5, cap: "round" });
+				.stroke({ color: line("#1b1230"), width: 2.5, cap: "round" });
 		}
 		// Spiky dark body: a rounded blob with triangular spikes on top.
-		g.roundRect(-16, -22, 32, 18, 8).fill("#2c1a4d");
+		g.roundRect(-16, -22, 32, 18, 8).fill(body("#2c1a4d"));
 		const spikes = [-12, -6, 0, 6, 12];
 		for (const sx of spikes) {
-			g.poly([sx - 4, -20, sx + 4, -20, sx, -28]).fill("#3d2566");
+			g.poly([sx - 4, -20, sx + 4, -20, sx, -28]).fill(body("#3d2566"));
 		}
-		// Glowing eyes with highlight.
+		// Glowing eyes with highlight — untinted.
 		g.circle(-5, -13, 4).fill("#ffe14d");
 		g.circle(6, -13, 4).fill("#ffe14d");
 		g.circle(-5, -13, 1.8).fill("#1b1230");
@@ -637,14 +691,16 @@ export function drawMonster(kind: "crawler" | "bat" | "lurker"): Container {
 		g.poly([2, -7, 5, -7, 3.5, -3]).fill("#ffffff");
 	} else {
 		// Two membranous wings (back-left and front-right of body).
-		g.poly([-4, -16, -22, -22, -18, -10, -24, -8, -8, -8]).fill("#6a3fb0");
-		g.poly([4, -16, 22, -22, 18, -10, 24, -8, 8, -8]).fill("#7a4fc0");
+		g.poly([-4, -16, -22, -22, -18, -10, -24, -8, -8, -8]).fill(
+			body("#6a3fb0"),
+		);
+		g.poly([4, -16, 22, -22, 18, -10, 24, -8, 8, -8]).fill(body("#7a4fc0"));
 		// Body.
-		g.ellipse(0, -12, 11, 10).fill("#5a2f9a");
+		g.ellipse(0, -12, 11, 10).fill(body("#5a2f9a"));
 		// Pointy ears.
-		g.poly([-7, -20, -3, -26, -1, -19]).fill("#5a2f9a");
-		g.poly([7, -20, 3, -26, 1, -19]).fill("#5a2f9a");
-		// Glowing eyes.
+		g.poly([-7, -20, -3, -26, -1, -19]).fill(body("#5a2f9a"));
+		g.poly([7, -20, 3, -26, 1, -19]).fill(body("#5a2f9a"));
+		// Glowing eyes — untinted.
 		g.circle(-4, -13, 3).fill("#ff4d6d");
 		g.circle(4, -13, 3).fill("#ff4d6d");
 		g.circle(-4, -13, 1.2).fill("#ffe9a8");
@@ -889,6 +945,41 @@ function mixHex(a: string, b: string, t: number): number {
 }
 
 /**
+ * Recolour a base `#rrggbb` colour toward a theme `accent`, returning a packed
+ * `0xRRGGBB`. Blends each channel a fraction `t` toward the accent (clamped to
+ * 0-255), so a level's monsters/decor pick up its mood without losing their
+ * silhouette. With no accent it returns the base colour unchanged.
+ *
+ * @param base - The sprite's intrinsic `#rrggbb` colour.
+ * @param accent - Optional theme accent `#rrggbb` to blend toward.
+ * @param t - Blend strength 0..1 (0 keeps base; 1 is full accent).
+ * @returns Packed `0xRRGGBB` colour ready for a Pixi fill/stroke.
+ */
+function tint(base: string, accent: string | undefined, t: number): number {
+	const [br, bg, bb] = hexToRgb(base);
+	if (!accent) return packRgb(clampByte(br), clampByte(bg), clampByte(bb));
+	const [ar, ag, ab] = hexToRgb(accent);
+	return packRgb(
+		clampByte(lerp(br, ar, t)),
+		clampByte(lerp(bg, ag, t)),
+		clampByte(lerp(bb, ab, t)),
+	);
+}
+
+/**
+ * As {@link tint}, but returns a `#rrggbb` string for the few helpers (such as
+ * {@link addSpire}) that take colour strings rather than packed numbers.
+ *
+ * @param base - The intrinsic `#rrggbb` colour.
+ * @param accent - Optional theme accent `#rrggbb` to blend toward.
+ * @param t - Blend strength 0..1.
+ * @returns A `#rrggbb` hex string.
+ */
+function tintStr(base: string, accent: string | undefined, t: number): string {
+	return `#${tint(base, accent, t).toString(16).padStart(6, "0")}`;
+}
+
+/**
  * Deterministic small offset in `[-amp, amp]` keyed off `size` and an integer
  * `seed`, so repeated decor of the same kind varies without `Math.random`. Uses
  * the fractional part of a scaled sine as a cheap pseudo-random source.
@@ -974,19 +1065,38 @@ function addSpire(
  * derived from `d.size` via {@link wobble} so repeated decor never looks
  * identical, with no `Math.random`/`Date.now`.
  *
+ * When a theme `accent` (`#rrggbb`) is given, the structural fills (spire tones,
+ * stones, mushroom cap, moss, crystal base) are blended toward it so the decor
+ * matches the level mood; glints, glows, spots and contact shadows are left as-is
+ * for readability. Omitting `accent` keeps the original colours, so existing call
+ * sites are unaffected.
+ *
  * @param d - Decor spec providing `kind` and `size`.
+ * @param accent - Optional theme accent `#rrggbb` to recolour the decor toward.
  * @returns A Pixi {@link Container} drawn at its local origin.
  */
-export function drawDecor(d: Decor): Container {
+export function drawDecor(d: Decor, accent?: string): Container {
 	const c = new Container();
 	const g = new Graphics();
 	const s = d.size;
+	// Structural fills lean a fair way toward the accent; crystals stay subtle.
+	const col = (hex: string) => tint(hex, accent, 0.4);
 
 	if (d.kind === "stalactite") {
 		// Tapered multi-segment spire hanging DOWN from the ceiling (y=0).
 		const seg = 3 + (Math.floor(s) % 2); // 3-4 segments from size.
 		const tipX = wobble(s, 3, s * 0.18); // gentle lean.
-		addSpire(g, s * 0.5, s * 2, 1, tipX, seg, "#5f5780", "#4a4360", "#332e47");
+		addSpire(
+			g,
+			s * 0.5,
+			s * 2,
+			1,
+			tipX,
+			seg,
+			tintStr("#5f5780", accent, 0.4),
+			tintStr("#4a4360", accent, 0.4),
+			tintStr("#332e47", accent, 0.4),
+		);
 		// Wet drip glint near the tip.
 		g.circle(tipX, s * 1.82, s * 0.07).fill({ color: 0xbdb2e0, alpha: 0.8 });
 	} else if (d.kind === "stalagmite") {
@@ -1000,17 +1110,18 @@ export function drawDecor(d: Decor): Container {
 			-1,
 			tipX,
 			seg,
-			"#5b567f",
-			"#43406a",
-			"#2d2a47",
+			tintStr("#5b567f", accent, 0.4),
+			tintStr("#43406a", accent, 0.4),
+			tintStr("#2d2a47", accent, 0.4),
 		);
 		// Faint lit cap on the tip.
 		g.circle(tipX, -s * 1.85, s * 0.08).fill({ color: 0x726c95, alpha: 0.6 });
 	} else if (d.kind === "crystal") {
 		// Small faceted gem centred on the origin: light face, dark face, glint.
+		// Crystals pull only gently toward the accent so they keep their gem read.
 		const r = s * 0.5;
 		const off = wobble(s, 2, r * 0.18); // facet asymmetry.
-		const base = "#3aa9cf";
+		const base = accent ? tintStr("#3aa9cf", accent, 0.5) : "#3aa9cf";
 		const lightFace = mixHex(base, "#dffaff", 0.7);
 		const darkFace = mixHex(base, "#10303f", 0.55);
 		// Soft glow halo.
@@ -1047,9 +1158,9 @@ export function drawDecor(d: Decor): Container {
 		]).fill({ color: 0xffffff, alpha: 0.9 });
 	} else if (d.kind === "pebble") {
 		// Cluster of 2-4 rounded stones with top-light and a contact shadow.
-		const dark = "#46414f";
-		const mid = "#5b5668";
-		const top = "#6f6a7e";
+		const dark = col("#46414f");
+		const mid = col("#5b5668");
+		const top = col("#6f6a7e");
 		// Soft contact shadow on the floor.
 		g.ellipse(0, -s * 0.04, s * 0.62, s * 0.1).fill({
 			color: 0x000000,
@@ -1079,17 +1190,19 @@ export function drawDecor(d: Decor): Container {
 		});
 		// Stem with a darker shaded right side.
 		g.roundRect(-s * 0.13, -s * 0.72, s * 0.26, s * 0.72, s * 0.12).fill(
-			"#d7cfba",
+			col("#d7cfba"),
 		);
 		g.roundRect(s * 0.0, -s * 0.72, s * 0.13, s * 0.72, s * 0.1).fill(
-			"#bcb39c",
+			col("#bcb39c"),
 		);
 		// Cap: a rounded dome with a lighter highlight band and a rim.
-		g.ellipse(lean, -s * 0.7, s * 0.46, s * 0.34).fill("#6f5183");
-		g.ellipse(lean, -s * 0.78, s * 0.42, s * 0.24).fill("#8a66a0");
-		g.ellipse(lean - s * 0.12, -s * 0.84, s * 0.18, s * 0.1).fill("#a07cb8");
+		g.ellipse(lean, -s * 0.7, s * 0.46, s * 0.34).fill(col("#6f5183"));
+		g.ellipse(lean, -s * 0.78, s * 0.42, s * 0.24).fill(col("#8a66a0"));
+		g.ellipse(lean - s * 0.12, -s * 0.84, s * 0.18, s * 0.1).fill(
+			col("#a07cb8"),
+		);
 		// Cap rim/underside shadow line.
-		g.ellipse(lean, -s * 0.62, s * 0.44, s * 0.1).fill("#5a4070");
+		g.ellipse(lean, -s * 0.62, s * 0.44, s * 0.1).fill(col("#5a4070"));
 		// Glowing spots (2-3, count from size).
 		const spots = 2 + (Math.floor(s) % 2);
 		const spotXs = [-s * 0.16, s * 0.16, s * 0.02];
@@ -1101,9 +1214,9 @@ export function drawDecor(d: Decor): Container {
 		}
 	} else if (d.kind === "moss") {
 		// Soft low clump: layered tufts in two greens with an irregular top edge.
-		const darkG = "#2c4429";
-		const midG = "#3e6638";
-		const litG = "#54834a";
+		const darkG = col("#2c4429");
+		const midG = col("#3e6638");
+		const litG = col("#54834a");
 		// Base pad hugging the floor.
 		g.ellipse(0, -s * 0.05, s * 0.72, s * 0.13).fill(darkG);
 		// Back row of taller tufts (darker).

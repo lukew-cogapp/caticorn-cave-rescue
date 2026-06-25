@@ -94,6 +94,12 @@ export interface Level {
 	decor: Decor[];
 	/** Two-stop background gradient (top, bottom) for cave mood. */
 	bg: [string, string];
+	/**
+	 * Theme accent colour (`#rrggbb`) for this cave. Monsters and decor are
+	 * recoloured toward this so each level reads as one mood. Derived from the
+	 * run seed by {@link buildLevels}.
+	 */
+	themeAccent: string;
 	/** Player horizontal move speed, pixels/sec. */
 	moveSpeed: number;
 	spawn: Vec2;

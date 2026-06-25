@@ -216,9 +216,10 @@ export class Lurker extends Monster {
 	}
 }
 
-/** Build the right Monster subclass for a spec, wiring up its art. */
-export function createMonster(spec: MonsterSpec): Monster {
-	const view = drawMonster(spec.kind);
+/** Build the right Monster subclass for a spec, wiring up its art. The optional
+ * theme accent recolours the monster toward the level's mood. */
+export function createMonster(spec: MonsterSpec, accent?: string): Monster {
+	const view = drawMonster(spec.kind, accent);
 	switch (spec.kind) {
 		case "bat":
 			return new Bat(view, spec);
