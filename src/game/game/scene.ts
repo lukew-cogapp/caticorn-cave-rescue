@@ -87,6 +87,7 @@ export function loadScene(
 		level.worldWidth,
 		level.bg,
 		level.themeAccent,
+		level.themeStyle,
 	);
 	world.addChild(bgLayers.far);
 	world.addChild(bgLayers.mid);
@@ -136,7 +137,11 @@ export function loadScene(
 		.filter((p) => p.y === GROUND_Y)
 		.map((p) => ({ x: p.x, w: p.w }));
 	// Static for the whole level: cache to one texture (no internal animation).
-	const floorStrip = drawFloorStrip(groundSpans, level.themeAccent);
+	const floorStrip = drawFloorStrip(
+		groundSpans,
+		level.themeAccent,
+		level.themeStyle,
+	);
 	floorStrip.cacheAsTexture(true);
 	world.addChild(floorStrip);
 
@@ -178,7 +183,7 @@ export function loadScene(
 	// grassy top for variety. drawPlatform draws at local 0,0 = top-left, exactly
 	// w x h (no overhang), so the collision rect is unchanged.
 	for (const p of level.platforms) {
-		const plat = drawPlatform(p.w, p.h, level.themeAccent);
+		const plat = drawPlatform(p.w, p.h, level.themeAccent, level.themeStyle);
 		plat.x = p.x;
 		plat.y = p.y;
 		// Static rock sprite: cache to a texture (never mutated after build).
@@ -234,7 +239,7 @@ export function loadScene(
 
 	// Monsters.
 	for (const spec of level.monsters) {
-		const m = createMonster(spec, level.themeAccent);
+		const m = createMonster(spec, level.themeAccent, level.themeStyle);
 		monsters.push(m);
 		world.addChild(m.view);
 	}

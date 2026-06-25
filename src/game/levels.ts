@@ -22,6 +22,7 @@ import {
 	type LayoutStyle,
 	pickStyles,
 	pickThemes,
+	type ThemeStyle,
 } from "./level/themes";
 import {
 	type CaticornSpec,
@@ -58,6 +59,8 @@ interface LevelConfig {
 	floorKinds: DecorKind[];
 	/** Ambient drifting particle for this cave. */
 	ambient: AmbientKind;
+	/** Theme visual identity (drives themed bg/floor/platform/monster/lighting). */
+	themeStyle: ThemeStyle;
 }
 
 /**
@@ -107,6 +110,7 @@ export function buildLevels(baseSeed = 1000): Level[] {
 		ceilingKinds: themes[i].ceilingKinds,
 		floorKinds: themes[i].floorKinds,
 		ambient: themes[i].ambient,
+		themeStyle: themes[i].style,
 	}));
 
 	return configs.map((c, i) => makeLevel(c, i, baseSeed));
@@ -257,6 +261,7 @@ function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
 		bg: c.bg,
 		themeAccent: c.accent,
 		ambient: c.ambient,
+		themeStyle: c.themeStyle,
 		moveSpeed: c.speed,
 		spawn: { x: 60, y: GROUND_Y },
 		exit: { x: worldWidth - 60, y: GROUND_Y },

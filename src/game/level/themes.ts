@@ -10,6 +10,20 @@ export type AmbientKind =
 	| "ember";
 
 /**
+ * Visual identity discriminant for a cave. Drives theme-specific background
+ * silhouettes, floor/platform texture, monster flavour, and ambient lighting
+ * (each draw helper branches on this), so caves look like distinct places, not
+ * recoloured rock. One per bespoke theme.
+ */
+export type ThemeStyle =
+	| "blossom"
+	| "crystal"
+	| "ice"
+	| "crypt"
+	| "grove"
+	| "molten";
+
+/**
  * A bespoke cave theme: a strong visual identity, not just a recoloured rock
  * mood. `bg` is the background gradient (top, bottom); `accent` recolours
  * monsters + decor toward the mood; `ceilingKinds` / `floorKinds` are the
@@ -31,6 +45,8 @@ export interface CaveTheme {
 	floorKinds: DecorKind[];
 	/** Ambient particle drifting through this cave. */
 	ambient: AmbientKind;
+	/** Visual identity driving themed bg/floor/platform/monster/lighting. */
+	style: ThemeStyle;
 }
 
 /**
@@ -46,6 +62,7 @@ export const THEMES: CaveTheme[] = [
 		ceilingKinds: ["blossom", "blossom", "crystal"],
 		floorKinds: ["blossom", "moss", "pebble"],
 		ambient: "petal",
+		style: "blossom",
 	},
 	{
 		name: "Crystal Cavern",
@@ -54,6 +71,7 @@ export const THEMES: CaveTheme[] = [
 		ceilingKinds: ["gemcluster", "gemcluster", "crystal"],
 		floorKinds: ["gemcluster", "crystal", "pebble"],
 		ambient: "gemsparkle",
+		style: "crystal",
 	},
 	{
 		name: "Glacier Vault",
@@ -62,6 +80,7 @@ export const THEMES: CaveTheme[] = [
 		ceilingKinds: ["icicle", "icicle", "crystal"],
 		floorKinds: ["icicle", "pebble", "pebble"],
 		ambient: "snow",
+		style: "ice",
 	},
 	{
 		name: "Spectre Crypt",
@@ -70,6 +89,7 @@ export const THEMES: CaveTheme[] = [
 		ceilingKinds: ["web", "web", "crack"],
 		floorKinds: ["gravestone", "gravestone", "pebble"],
 		ambient: "fog",
+		style: "crypt",
 	},
 	{
 		name: "Mushroom Grove",
@@ -78,6 +98,7 @@ export const THEMES: CaveTheme[] = [
 		ceilingKinds: ["crystal", "crack"],
 		floorKinds: ["mushroom", "mushroom", "moss"],
 		ambient: "spore",
+		style: "grove",
 	},
 	{
 		name: "Molten Hollow",
@@ -86,6 +107,7 @@ export const THEMES: CaveTheme[] = [
 		ceilingKinds: ["emberrock", "crack"],
 		floorKinds: ["emberrock", "emberrock", "pebble"],
 		ambient: "ember",
+		style: "molten",
 	},
 ];
 

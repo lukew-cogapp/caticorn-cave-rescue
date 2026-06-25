@@ -9,6 +9,7 @@ import {
 	FREEZE_STOMP,
 	INVULN_TIME,
 	MAX_FRAME_TIME,
+	NIGHT_LIGHTING,
 	POOP_DAMAGE,
 	POOP_LINGER,
 	START_HEALTH,
@@ -70,6 +71,12 @@ export class Game {
 	private dayPhase = 0;
 	/** Ambient-glow pulse phase accumulator in seconds (drives glow breathing). */
 	private glowPhase = 0;
+	/**
+	 * Peak alpha intensity for the current level's night overlay. Set from
+	 * {@link NIGHT_LIGHTING} when a level loads; passed to {@link updateDayNight}
+	 * each step so each theme controls how dark full-night feels.
+	 */
+	private nightIntensity = 0.4;
 
 	/** Ambient background fireflies (added behind gameplay in the world). */
 	private readonly fireflies = new Fireflies();
@@ -282,6 +289,20 @@ export class Game {
 
 	private loadLevel(index: number): void {
 		this.level = this.levels[index];
+
+		// Re-fill the night overlay with the per-theme ambient tint colour.
+		// The Graphics rectangle size is fixed (GAME_WIDTH × GAME_HEIGHT) so we
+		// clear + re-fill rather than re-creating the object; alpha stays at 0
+		// and is animated each step by updateDayNight. The intensity scalar for
+		// this theme is stored so the step loop can pass it through.
+		const lighting = NIGHT_LIGHTING[this.level.themeStyle];
+		this.nightIntensity = lighting.intensity;
+		this.nightOverlay.clear();
+		this.nightOverlay
+			.rect(0, 0, GAME_WIDTH, GAME_HEIGHT)
+			.fill({ color: lighting.color, alpha: 1 });
+		this.nightOverlay.alpha = 0;
+
 		this.teardownLevel();
 		this.poops = [];
 		this.death = null;
@@ -364,7 +385,12 @@ export class Game {
 	 * @param dt The fixed step size in seconds ({@link FIXED_DT}).
 	 */
 	private step(dt: number): void {
-		this.dayPhase = updateDayNight(this.nightOverlay, this.dayPhase, dt);
+		this.dayPhase = updateDayNight(
+			this.nightOverlay,
+			this.dayPhase,
+			dt,
+			this.nightIntensity,
+		);
 
 		// Particles + shake run every frame regardless of status so bursts finish
 		// even on the win/lose/death frame.

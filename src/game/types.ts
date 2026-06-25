@@ -1,5 +1,5 @@
 import type { Container } from "pixi.js";
-import type { AmbientKind } from "./level/themes";
+import type { AmbientKind, ThemeStyle } from "./level/themes";
 
 /** Fixed internal render resolution; world logic uses these coords. */
 export const GAME_WIDTH = 800;
@@ -114,6 +114,12 @@ export interface Level {
 	 * {@link buildLevels}; gives each cave a signature atmospheric mood.
 	 */
 	ambient: AmbientKind;
+	/**
+	 * Theme visual identity (blossom/crystal/ice/crypt/grove/molten). Draw helpers
+	 * branch on this for themed background silhouettes, floor/platform texture,
+	 * monster flavour and ambient lighting. From the theme via {@link buildLevels}.
+	 */
+	themeStyle: ThemeStyle;
 	/** Player horizontal move speed, pixels/sec. */
 	moveSpeed: number;
 	spawn: Vec2;

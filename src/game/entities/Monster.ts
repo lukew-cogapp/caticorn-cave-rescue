@@ -6,6 +6,7 @@ import {
 	LURKER_DROP_INTERVAL,
 	LURKER_SWAY,
 } from "../const";
+import type { ThemeStyle } from "../level/themes";
 import type { MonsterSpec, Platform, WorldContext } from "../types";
 import { Entity } from "./Entity";
 
@@ -212,10 +213,21 @@ export class Lurker extends Monster {
 	}
 }
 
-/** Build the right Monster subclass for a spec, wiring up its art. The optional
- * theme accent recolours the monster toward the level's mood. */
-export function createMonster(spec: MonsterSpec, accent?: string): Monster {
-	const view = drawMonster(spec.kind, accent);
+/**
+ * Build the right Monster subclass for a spec, wiring up its art.
+ *
+ * @param spec - Monster placement data (kind, position, patrol range, speed).
+ * @param accent - Optional theme accent `#rrggbb` to recolour the body toward.
+ * @param style - Optional visual theme that layers a per-cave flourish on the
+ *   sprite (e.g. crystal shards, icy rim, ghostly translucency). Physics and
+ *   gameplay behaviour are unaffected.
+ */
+export function createMonster(
+	spec: MonsterSpec,
+	accent?: string,
+	style?: ThemeStyle,
+): Monster {
+	const view = drawMonster(spec.kind, accent, style);
 	switch (spec.kind) {
 		case "bat":
 			return new Bat(view, spec);

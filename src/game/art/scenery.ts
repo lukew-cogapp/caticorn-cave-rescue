@@ -1,4 +1,5 @@
 import { Container, Graphics } from "pixi.js";
+import type { ThemeStyle } from "../level/themes";
 import type { Decor } from "../types";
 import { GAME_HEIGHT } from "../types";
 import {
@@ -922,7 +923,7 @@ export function drawBackground(
  * different fraction of the camera offset to create depth:
  *
  * ```ts
- * const layers = drawBackgroundLayers(worldWidth, level.bg, level.themeAccent);
+ * const layers = drawBackgroundLayers(worldWidth, level.bg, level.themeAccent, level.themeStyle);
  * world.addChildAt(layers.far,  0);
  * world.addChildAt(layers.mid,  1);
  * world.addChildAt(layers.near, 2);
@@ -935,16 +936,26 @@ export function drawBackground(
  * All variation is deterministic (seeded PRNG, no `Math.random`/`Date.now`).
  * Theme `accent` colours the glow clusters when provided; rock tones are
  * derived from `bg` stops exactly as in {@link drawBackground}.
+ * The `style` parameter drives theme-specific silhouette content per layer so
+ * each cave type looks like a genuinely different place:
+ * - `blossom`: rounded tree-canopy silhouettes + drooping branch shapes.
+ * - `crystal`: clustered angular crystal-shard / geode wall silhouettes.
+ * - `ice`: jagged glacier walls + angular ice blocks + faint icicle rows.
+ * - `crypt`: gothic arches, pillars, distant tombstone silhouettes.
+ * - `grove`: big mushroom silhouettes + organic blobby cave walls.
+ * - `molten`: rock walls with lava fissures + ember-lit pool clusters.
  *
  * @param worldWidth - Total world width in pixels; all layers span it.
  * @param bg - Two-stop `[top, bottom]` gradient as `#rrggbb` strings.
  * @param accent - Optional theme accent `#rrggbb` to tint glow clusters.
+ * @param style - Theme style discriminant driving silhouette content.
  * @returns `{ far, mid, near }` Containers ready for the world.
  */
 export function drawBackgroundLayers(
 	worldWidth: number,
 	bg: [string, string],
-	accent?: string,
+	accent: string | undefined,
+	style: ThemeStyle,
 ): BackgroundLayers {
 	const [tr, tg, tb] = hexToRgb(bg[0]);
 	const [br, bgc, bb] = hexToRgb(bg[1]);
@@ -1029,10 +1040,13 @@ export function drawBackgroundLayers(
 		});
 	}
 
+	// Theme-specific far silhouette pass — subtle backdrop shapes.
+	drawFarSilhouettes(farG, worldWidth, wallFar, wallMid, rng, style);
+
 	farC.addChild(farG);
 
 	// ── MID layer ────────────────────────────────────────────────────────────
-	// Mid rock silhouettes + distant stalactites/stalagmites.
+	// Mid rock silhouettes + distant stalactites/stalagmites + theme details.
 	const midC = new Container();
 	const midG = new Graphics();
 
@@ -1048,30 +1062,200 @@ export function drawBackgroundLayers(
 		});
 	}
 
-	// Distant stalactite silhouettes.
-	for (let x = rng(60, 140); x < worldWidth; x += rng(120, 220)) {
-		const w2 = rng(10, 22);
-		const len = rng(28, 70);
-		midG.poly([x - w2 / 2, 0, x + w2 / 2, 0, x + rng(-6, 6), len]).fill({
-			color: wallMid,
-			alpha: 0.22,
-		});
+	// Distant stalactite silhouettes — replaced per-theme below where relevant;
+	// kept for generic fallback styles.
+	switch (style) {
+		case "blossom":
+			// Hanging branch silhouettes instead of stalactites.
+			for (let x = rng(60, 140); x < worldWidth; x += rng(120, 220)) {
+				const branchW = rng(18, 38);
+				const dropLen = rng(22, 52);
+				// Curved organic branch drooping from ceiling.
+				midG
+					.moveTo(x - branchW * 0.5, 0)
+					.quadraticCurveTo(x, dropLen * 0.55, x + branchW * 0.4, dropLen)
+					.stroke({ color: wallMid, width: rng(2.5, 4.5), alpha: 0.2 });
+				// Small foliage blob at the tip.
+				midG.ellipse(x + branchW * 0.4, dropLen, rng(8, 16), rng(5, 10)).fill({
+					color: wallMid,
+					alpha: 0.18,
+				});
+			}
+			break;
+		case "crystal":
+			// Angular crystal shards jutting from ceiling.
+			for (let x = rng(60, 140); x < worldWidth; x += rng(100, 200)) {
+				const shardW = rng(6, 14);
+				const shardLen = rng(25, 65);
+				const tipX = x + rng(-8, 8);
+				midG
+					.poly([x - shardW, 0, x + shardW, 0, tipX, shardLen])
+					.fill({ color: wallMid, alpha: 0.22 });
+				// Lit sliver on left face.
+				midG
+					.poly([
+						x - shardW,
+						0,
+						x - shardW * 0.2,
+						0,
+						tipX - shardW * 0.15,
+						shardLen * 0.85,
+						tipX,
+						shardLen,
+					])
+					.fill({ color: wallLight, alpha: 0.1 });
+			}
+			break;
+		case "ice":
+			// Jagged glacier ceiling spikes.
+			for (let x = rng(50, 120); x < worldWidth; x += rng(90, 180)) {
+				const iceW = rng(12, 28);
+				const iceLen = rng(30, 72);
+				// Blocky angular ice form.
+				midG
+					.poly([
+						x - iceW,
+						0,
+						x + iceW,
+						0,
+						x + iceW * 0.6,
+						iceLen * 0.6,
+						x + rng(-4, 4),
+						iceLen,
+						x - iceW * 0.6,
+						iceLen * 0.6,
+					])
+					.fill({ color: wallMid, alpha: 0.2 });
+				midG
+					.poly([
+						x - iceW,
+						0,
+						x - iceW * 0.3,
+						0,
+						x - iceW * 0.1,
+						iceLen * 0.7,
+						x - iceW * 0.6,
+						iceLen * 0.6,
+					])
+					.fill({ color: wallLight, alpha: 0.1 });
+			}
+			break;
+		case "crypt":
+			// Gothic arch / pillar silhouettes hanging from ceiling.
+			for (let x = rng(80, 160); x < worldWidth; x += rng(140, 260)) {
+				const archW = rng(18, 32);
+				const archH = rng(40, 80);
+				const pillarW = archW * 0.28;
+				// Left pillar.
+				midG
+					.rect(x - archW * 0.5, 0, pillarW, archH * 0.7)
+					.fill({ color: wallMid, alpha: 0.2 });
+				// Right pillar.
+				midG
+					.rect(x + archW * 0.5 - pillarW, 0, pillarW, archH * 0.7)
+					.fill({ color: wallMid, alpha: 0.2 });
+				// Pointed arch connecting them.
+				midG
+					.moveTo(x - archW * 0.5, 0)
+					.quadraticCurveTo(x - archW * 0.5, archH, x, archH * 0.55)
+					.quadraticCurveTo(x + archW * 0.5, archH, x + archW * 0.5, 0)
+					.fill({ color: wallMid, alpha: 0.15 });
+			}
+			break;
+		case "grove":
+			// Large mushroom cap silhouettes in the mid distance.
+			for (let x = rng(60, 140); x < worldWidth; x += rng(120, 240)) {
+				const stemH = rng(28, 55);
+				const capW = rng(30, 60);
+				const capH = rng(16, 28);
+				const base = GAME_HEIGHT - 26;
+				// Stem.
+				midG
+					.rect(x - capW * 0.1, base - stemH, capW * 0.2, stemH)
+					.fill({ color: wallMid, alpha: 0.2 });
+				// Dome cap.
+				midG
+					.ellipse(x, base - stemH - capH * 0.4, capW, capH)
+					.fill({ color: wallMid, alpha: 0.24 });
+				midG
+					.ellipse(
+						x - capW * 0.2,
+						base - stemH - capH * 0.6,
+						capW * 0.5,
+						capH * 0.55,
+					)
+					.fill({ color: wallLight, alpha: 0.08 });
+			}
+			// No standard stalactites in grove — organic blobby ceiling bulges instead.
+			for (let x = rng(80, 180); x < worldWidth; x += rng(130, 240)) {
+				const blobW = rng(20, 40);
+				const blobH = rng(10, 26);
+				midG.ellipse(x, blobH * 0.5, blobW, blobH).fill({
+					color: wallMid,
+					alpha: 0.18,
+				});
+			}
+			break;
+		case "molten":
+			// Jagged magma-column / basalt vent silhouettes from floor.
+			for (let x = rng(80, 180); x < worldWidth; x += rng(150, 280)) {
+				const colW = rng(14, 26);
+				const colH = rng(30, 70);
+				const base = GAME_HEIGHT - 26;
+				midG
+					.poly([
+						x - colW * 0.5,
+						base,
+						x + colW * 0.5,
+						base,
+						x + colW * 0.35,
+						base - colH * 0.5,
+						x + colW * 0.2,
+						base - colH,
+						x - colW * 0.15,
+						base - colH * 0.85,
+						x - colW * 0.4,
+						base - colH * 0.5,
+					])
+					.fill({ color: wallNear, alpha: 0.22 });
+			}
+			// Glowing lava crack accent lines in far layer (faint).
+			for (let x = rng(60, 180); x < worldWidth; x += rng(200, 380)) {
+				const crackH = rng(12, 30);
+				const base = GAME_HEIGHT - 20;
+				midG
+					.moveTo(x + rng(-6, 6), base)
+					.lineTo(x + rng(-4, 4), base - crackH)
+					.stroke({ color: 0xff6020, width: rng(1.2, 2.5), alpha: 0.18 });
+			}
+			break;
+		default:
+			// Generic fallback: standard stalactite silhouettes.
+			for (let x = rng(60, 140); x < worldWidth; x += rng(120, 220)) {
+				const w2 = rng(10, 22);
+				const len = rng(28, 70);
+				midG
+					.poly([x - w2 / 2, 0, x + w2 / 2, 0, x + rng(-6, 6), len])
+					.fill({ color: wallMid, alpha: 0.22 });
+			}
 	}
 
-	// Distant stalagmite silhouettes.
-	for (let x = rng(80, 180); x < worldWidth; x += rng(140, 260)) {
-		const w2 = rng(14, 28);
-		const len = rng(30, 64);
-		const base = GAME_HEIGHT - 26;
-		midG
-			.poly([x - w2 / 2, base, x + w2 / 2, base, x + rng(-6, 6), base - len])
-			.fill({ color: wallNear, alpha: 0.24 });
+	// Distant stalagmite silhouettes (shared across non-grove styles; grove omits).
+	if (style !== "grove") {
+		for (let x = rng(80, 180); x < worldWidth; x += rng(140, 260)) {
+			const w2 = rng(14, 28);
+			const len = rng(30, 64);
+			const base = GAME_HEIGHT - 26;
+			midG
+				.poly([x - w2 / 2, base, x + w2 / 2, base, x + rng(-6, 6), base - len])
+				.fill({ color: wallNear, alpha: 0.24 });
+		}
 	}
 
 	midC.addChild(midG);
 
 	// ── NEAR layer ───────────────────────────────────────────────────────────
-	// Near dark rock silhouettes + columns + vignette.
+	// Near dark rock silhouettes + columns + vignette + theme details.
 	const nearC = new Container();
 	const nearG = new Graphics();
 
@@ -1087,7 +1271,18 @@ export function drawBackgroundLayers(
 		});
 	}
 
-	// Rock columns spanning floor to ceiling.
+	// Theme-specific near silhouette details.
+	drawNearSilhouettes(
+		nearG,
+		worldWidth,
+		wallFar,
+		wallNear,
+		wallLight,
+		rng,
+		style,
+	);
+
+	// Rock columns spanning floor to ceiling (kept for all themes; shape varies).
 	const colCount = Math.max(1, Math.floor(worldWidth / 700));
 	for (let i = 0; i < colCount; i++) {
 		const cx = rng(120, worldWidth - 120);
@@ -1128,6 +1323,365 @@ export function drawBackgroundLayers(
 }
 
 /**
+ * Draw theme-specific silhouette shapes into the far background layer.
+ * Keeps alpha very low so it never competes with gameplay.
+ * All variation is deterministic via the passed `rng`.
+ */
+function drawFarSilhouettes(
+	g: Graphics,
+	worldWidth: number,
+	wallFar: number,
+	wallMid: number,
+	rng: (a: number, b: number) => number,
+	style: ThemeStyle,
+): void {
+	switch (style) {
+		case "blossom": {
+			// Soft distant rounded tree-canopy blobs along the floor horizon.
+			for (let x = rng(40, 120); x < worldWidth; x += rng(130, 240)) {
+				const cw = rng(38, 72);
+				const ch = rng(22, 44);
+				const base = GAME_HEIGHT - 60;
+				g.ellipse(x, base - ch * 0.4, cw, ch).fill({
+					color: wallFar,
+					alpha: 0.14,
+				});
+				// Smaller sub-canopy blob.
+				g.ellipse(x + rng(-20, 20), base - ch * 0.7, cw * 0.55, ch * 0.55).fill(
+					{
+						color: wallMid,
+						alpha: 0.1,
+					},
+				);
+			}
+			break;
+		}
+		case "crystal": {
+			// Faint geode wall texture: irregular faceted surface at the bottom.
+			for (let x = rng(30, 100); x < worldWidth; x += rng(80, 150)) {
+				const facetW = rng(20, 44);
+				const facetH = rng(12, 28);
+				const base = GAME_HEIGHT - 55;
+				// Irregular hexagon facet.
+				g.poly([
+					x,
+					base - facetH,
+					x + facetW * 0.5,
+					base - facetH * 0.4,
+					x + facetW * 0.4,
+					base,
+					x - facetW * 0.35,
+					base,
+					x - facetW * 0.5,
+					base - facetH * 0.35,
+				]).fill({ color: wallFar, alpha: 0.12 });
+			}
+			break;
+		}
+		case "ice": {
+			// Faint horizontal ice shelf bands — layered glacier strata.
+			for (let yi = 0; yi < 3; yi++) {
+				const y = GAME_HEIGHT * 0.25 + yi * (GAME_HEIGHT * 0.18);
+				g.rect(0, y, worldWidth, rng(2, 4)).fill({
+					color: wallFar,
+					alpha: 0.07 + yi * 0.03,
+				});
+			}
+			// Small angular ice block silhouettes along floor.
+			for (let x = rng(50, 130); x < worldWidth; x += rng(120, 220)) {
+				const bw = rng(22, 48);
+				const bh = rng(10, 22);
+				const base = GAME_HEIGHT - 55;
+				g.roundRect(x - bw * 0.5, base - bh, bw, bh, 2).fill({
+					color: wallFar,
+					alpha: 0.14,
+				});
+			}
+			break;
+		}
+		case "crypt": {
+			// Distant tombstone / coffin silhouettes along the far floor.
+			for (let x = rng(60, 150); x < worldWidth; x += rng(140, 280)) {
+				const sw = rng(10, 18);
+				const sh = rng(18, 34);
+				const base = GAME_HEIGHT - 58;
+				// Rounded-top headstone.
+				g.roundRect(x - sw * 0.5, base - sh, sw, sh, sw * 0.48).fill({
+					color: wallFar,
+					alpha: 0.14,
+				});
+			}
+			break;
+		}
+		case "grove": {
+			// Tiny distant mushroom shapes — small dots of cap far back.
+			for (let x = rng(40, 100); x < worldWidth; x += rng(90, 180)) {
+				const capW = rng(14, 30);
+				const capH = rng(8, 16);
+				const stemH = rng(10, 20);
+				const base = GAME_HEIGHT - 58;
+				g.rect(x - capW * 0.08, base - stemH, capW * 0.16, stemH).fill({
+					color: wallFar,
+					alpha: 0.12,
+				});
+				g.ellipse(x, base - stemH - capH * 0.3, capW, capH).fill({
+					color: wallFar,
+					alpha: 0.14,
+				});
+			}
+			break;
+		}
+		case "molten": {
+			// Faint lava pool glow puddles low in the far distance.
+			for (let x = rng(50, 150); x < worldWidth; x += rng(180, 360)) {
+				const pw = rng(22, 48);
+				const base = GAME_HEIGHT - 48;
+				g.ellipse(x, base, pw, rng(6, 12)).fill({
+					color: 0xff5010,
+					alpha: 0.07,
+				});
+			}
+			// Jagged far silhouette rock spires (darker than generic ellipses).
+			for (let x = rng(40, 120); x < worldWidth; x += rng(110, 200)) {
+				const sw = rng(8, 18);
+				const sh = rng(20, 50);
+				const base = GAME_HEIGHT - 55;
+				g.poly([
+					x - sw * 0.5,
+					base,
+					x + sw * 0.5,
+					base,
+					x + rng(-4, 4),
+					base - sh,
+				]).fill({
+					color: wallFar,
+					alpha: 0.16,
+				});
+			}
+			break;
+		}
+		default:
+			break;
+	}
+}
+
+/**
+ * Draw theme-specific near-layer silhouette shapes. These are the closest
+ * (darkest, largest) background elements and sit just behind the gameplay plane.
+ * All variation is deterministic via the passed `rng`.
+ */
+function drawNearSilhouettes(
+	g: Graphics,
+	worldWidth: number,
+	wallFar: number,
+	wallNear: number,
+	wallLight: number,
+	rng: (a: number, b: number) => number,
+	style: ThemeStyle,
+): void {
+	switch (style) {
+		case "blossom": {
+			// Large near-plane canopy silhouettes framing the cave sides.
+			for (let x = rng(60, 160); x < worldWidth; x += rng(200, 380)) {
+				const cw = rng(55, 90);
+				const ch = rng(35, 60);
+				const base = GAME_HEIGHT - 25;
+				g.ellipse(x, base - ch * 0.45, cw, ch).fill({
+					color: wallNear,
+					alpha: 0.22,
+				});
+				g.ellipse(x - cw * 0.3, base - ch * 0.8, cw * 0.55, ch * 0.5).fill({
+					color: wallNear,
+					alpha: 0.18,
+				});
+			}
+			break;
+		}
+		case "crystal": {
+			// Large angular crystal shard clusters framing the floor edges.
+			for (let x = rng(50, 140); x < worldWidth; x += rng(180, 340)) {
+				const shardH = rng(35, 75);
+				const shardW = rng(14, 28);
+				const base = GAME_HEIGHT - 22;
+				// Main shard.
+				g.poly([
+					x - shardW * 0.5,
+					base,
+					x + shardW * 0.5,
+					base,
+					x + shardW * 0.25,
+					base - shardH * 0.55,
+					x + rng(-5, 5),
+					base - shardH,
+					x - shardW * 0.2,
+					base - shardH * 0.6,
+				]).fill({ color: wallNear, alpha: 0.28 });
+				// Lit face sliver.
+				g.poly([
+					x - shardW * 0.5,
+					base,
+					x - shardW * 0.12,
+					base,
+					x - shardW * 0.1,
+					base - shardH * 0.7,
+					x - shardW * 0.2,
+					base - shardH * 0.6,
+				]).fill({ color: wallLight, alpha: 0.1 });
+			}
+			break;
+		}
+		case "ice": {
+			// Thick near glacier wall chunks at floor level.
+			for (let x = rng(60, 150); x < worldWidth; x += rng(200, 360)) {
+				const bw = rng(45, 80);
+				const bh = rng(24, 48);
+				const base = GAME_HEIGHT - 22;
+				// Ice block with angular top face.
+				g.poly([
+					x - bw * 0.5,
+					base,
+					x + bw * 0.5,
+					base,
+					x + bw * 0.45,
+					base - bh * 0.6,
+					x + bw * 0.2,
+					base - bh,
+					x - bw * 0.25,
+					base - bh,
+					x - bw * 0.45,
+					base - bh * 0.55,
+				]).fill({ color: wallNear, alpha: 0.26 });
+				// Glossy highlight across the top.
+				g.poly([
+					x - bw * 0.25,
+					base - bh,
+					x + bw * 0.2,
+					base - bh,
+					x + bw * 0.45,
+					base - bh * 0.6,
+					x - bw * 0.45,
+					base - bh * 0.55,
+				]).fill({ color: wallLight, alpha: 0.1 });
+			}
+			break;
+		}
+		case "crypt": {
+			// Gothic pillar pairs flanking the near plane.
+			for (let x = rng(80, 200); x < worldWidth; x += rng(250, 450)) {
+				const pillarW = rng(14, 22);
+				const pillarH = GAME_HEIGHT * rng(0.55, 0.85);
+				const base = GAME_HEIGHT - 20;
+				// Left pillar of pair.
+				g.roundRect(
+					x - pillarW * 1.5,
+					base - pillarH,
+					pillarW,
+					pillarH,
+					2,
+				).fill({
+					color: wallNear,
+					alpha: 0.24,
+				});
+				// Pointed capital at top.
+				g.poly([
+					x - pillarW * 1.5,
+					base - pillarH,
+					x - pillarW * 0.5,
+					base - pillarH,
+					x - pillarW,
+					base - pillarH - rng(14, 24),
+				]).fill({ color: wallNear, alpha: 0.2 });
+				// Right pillar of pair.
+				g.roundRect(
+					x + pillarW * 0.5,
+					base - pillarH,
+					pillarW,
+					pillarH,
+					2,
+				).fill({
+					color: wallNear,
+					alpha: 0.24,
+				});
+				g.poly([
+					x + pillarW * 0.5,
+					base - pillarH,
+					x + pillarW * 1.5,
+					base - pillarH,
+					x + pillarW,
+					base - pillarH - rng(14, 24),
+				]).fill({ color: wallNear, alpha: 0.2 });
+			}
+			break;
+		}
+		case "grove": {
+			// Large mushroom silhouettes close to the viewer — widest caps.
+			for (let x = rng(70, 180); x < worldWidth; x += rng(200, 380)) {
+				const stemH = rng(40, 75);
+				const capW = rng(55, 95);
+				const capH = rng(24, 42);
+				const base = GAME_HEIGHT - 22;
+				// Stem.
+				g.roundRect(x - capW * 0.09, base - stemH, capW * 0.18, stemH, 3).fill({
+					color: wallNear,
+					alpha: 0.25,
+				});
+				// Main cap dome.
+				g.ellipse(x, base - stemH - capH * 0.35, capW, capH).fill({
+					color: wallNear,
+					alpha: 0.28,
+				});
+				// Lighter highlight on top third.
+				g.ellipse(
+					x - capW * 0.22,
+					base - stemH - capH * 0.65,
+					capW * 0.5,
+					capH * 0.45,
+				).fill({
+					color: wallLight,
+					alpha: 0.08,
+				});
+				// Blobby organic ceiling bulge above.
+				g.ellipse(x, rng(8, 20), rng(24, 44), rng(8, 16)).fill({
+					color: wallFar,
+					alpha: 0.14,
+				});
+			}
+			break;
+		}
+		case "molten": {
+			// Basalt rock buttresses and glowing seam lines at the near plane.
+			for (let x = rng(60, 160); x < worldWidth; x += rng(200, 380)) {
+				const bw = rng(30, 55);
+				const bh = rng(40, 80);
+				const base = GAME_HEIGHT - 22;
+				// Rough basalt slab.
+				g.poly([
+					x - bw * 0.5,
+					base,
+					x + bw * 0.5,
+					base,
+					x + bw * 0.4,
+					base - bh * 0.45,
+					x + bw * 0.15,
+					base - bh,
+					x - bw * 0.2,
+					base - bh * 0.9,
+					x - bw * 0.45,
+					base - bh * 0.4,
+				]).fill({ color: wallNear, alpha: 0.3 });
+				// Glowing orange seam crack.
+				g.moveTo(x + rng(-5, 5), base - bh * 0.2)
+					.lineTo(x + rng(-4, 4), base - bh * 0.7)
+					.stroke({ color: 0xff6020, width: rng(1.5, 3), alpha: 0.22 });
+			}
+			break;
+		}
+		default:
+			break;
+	}
+}
+
+/**
  * Draw a solid ground strip running along the bottom of the world. The walkable
  * surface sits at `y = GAME_HEIGHT - 30` (matches the {@link GROUND_Y} constant)
  * and the strip fills down to `y = GAME_HEIGHT`.
@@ -1149,12 +1703,18 @@ export function drawBackgroundLayers(
  * @param spans - Solid ground runs as `{ x, w }` in world px (the level's
  *                ground-segment platforms). Gaps between them stay open as pits.
  * @param accent - Optional theme accent `#rrggbb` to tint the rock tones.
+ * @param style - Theme style discriminant driving surface texture. Each value
+ *   gives a distinct look: `blossom` grassy + petal flecks; `crystal` rock with
+ *   crystal glints; `ice` pale-blue frosted/cracked surface; `crypt` cracked
+ *   flagstones with faint moss; `grove` mossy earth + tiny mushroom tufts;
+ *   `molten` charred rock with glowing orange seams.
  * @returns A Container with origin at (0,0); position it at (0,0) in world
  *          coords — the strip draws at the correct `y` internally.
  */
 export function drawFloorStrip(
 	spans: { x: number; w: number }[],
-	accent?: string,
+	accent: string | undefined,
+	style: ThemeStyle,
 ): Container {
 	const c = new Container();
 	const g = new Graphics();
@@ -1162,14 +1722,34 @@ export function drawFloorStrip(
 	const surfaceY = GAME_HEIGHT - 30; // walkable surface (= GROUND_Y)
 	const stripH = 30; // total strip height down to GAME_HEIGHT
 
-	// Base rock colours, optionally tinted toward accent.
-	const bodyTop = tint("#4a4060", accent, 0.4);
-	const bodyBot = tint("#2a1e38", accent, 0.4);
-	const rimCol = tint("#7a6e95", accent, 0.35);
+	// Theme-driven body, rim and detail colours.
+	// Ice and molten get cooler/warmer base tones; others stay near the generic rock.
+	const bodyTop =
+		style === "ice"
+			? tint("#3a5570", accent, 0.35)
+			: style === "molten"
+				? tint("#3a1810", accent, 0.45)
+				: style === "crypt"
+					? tint("#3a3848", accent, 0.4)
+					: tint("#4a4060", accent, 0.4);
+	const bodyBot =
+		style === "ice"
+			? tint("#1e3346", accent, 0.35)
+			: style === "molten"
+				? tint("#1c0c06", accent, 0.45)
+				: style === "crypt"
+					? tint("#22202e", accent, 0.4)
+					: tint("#2a1e38", accent, 0.4);
+	const rimCol =
+		style === "ice"
+			? tint("#b8e8ff", accent, 0.25)
+			: style === "molten"
+				? tint("#6a4030", accent, 0.4)
+				: style === "crypt"
+					? tint("#6a6878", accent, 0.35)
+					: tint("#7a6e95", accent, 0.35);
 	const mottle1 = tint("#3e3558", accent, 0.4);
 	const mottle2 = tint("#56486e", accent, 0.35);
-	const mossCol = tint("#3a5c34", accent, 0.25);
-	const mossLit = tint("#4e7a46", accent, 0.25);
 	// Near-black for the pit-facing edge shadow so drops read as deep.
 	const edgeDark = tint("#0d0716", accent, 0.15);
 
@@ -1244,32 +1824,236 @@ export function drawFloorStrip(
 			});
 		}
 
-		// Moss fringe — sparse small tufts sitting just below the rim.
-		const mossSpacing = 64;
-		for (let x = sx + 8; x < ex - 8; x += mossSpacing) {
-			const mx = x + wobble(x, 23, mossSpacing * 0.35);
-			const mh = 4 + Math.abs(wobble(x, 29, 2));
-			g.poly([
-				mx - 4,
-				surfaceY + 3,
-				mx + 4,
-				surfaceY + 3,
-				mx,
-				surfaceY + 3 - mh,
-			]).fill({ color: mossCol, alpha: 0.7 });
-			g.poly([
-				mx + 2,
-				surfaceY + 3,
-				mx + 8,
-				surfaceY + 3,
-				mx + 5,
-				surfaceY + 3 - mh * 0.7,
-			]).fill({ color: mossLit, alpha: 0.55 });
-		}
+		// Theme-specific surface details drawn just below the rim.
+		drawFloorSurface(g, sx, ex, surfaceY, accent, style);
 	}
 
 	c.addChild(g);
 	return c;
+}
+
+/**
+ * Draw theme-specific surface decoration immediately below the floor rim.
+ * Called once per span. All variation is deterministic via {@link wobble}.
+ *
+ * - `blossom`: green grass blades + small rose petal fleck dots.
+ * - `crystal`: faint crystal glint strokes embedded in the rock.
+ * - `ice`: pale-blue cracked-ice lines + glossy highlight band.
+ * - `crypt`: dark flagstone joint lines + faint grey moss in cracks.
+ * - `grove`: dense moss tufts + tiny mushroom cap dots.
+ * - `molten`: glowing orange seam lines running along the charred surface.
+ */
+function drawFloorSurface(
+	g: Graphics,
+	sx: number,
+	ex: number,
+	surfaceY: number,
+	accent: string | undefined,
+	style: ThemeStyle,
+): void {
+	switch (style) {
+		case "blossom": {
+			// Grass fringe — small tufts just below the rim.
+			const mossCol = tint("#3a5c34", accent, 0.25);
+			const mossLit = tint("#4e7a46", accent, 0.25);
+			const mossSpacing = 64;
+			for (let x = sx + 8; x < ex - 8; x += mossSpacing) {
+				const mx = x + wobble(x, 23, mossSpacing * 0.35);
+				const mh = 4 + Math.abs(wobble(x, 29, 2));
+				g.poly([
+					mx - 4,
+					surfaceY + 3,
+					mx + 4,
+					surfaceY + 3,
+					mx,
+					surfaceY + 3 - mh,
+				]).fill({
+					color: mossCol,
+					alpha: 0.7,
+				});
+				g.poly([
+					mx + 2,
+					surfaceY + 3,
+					mx + 8,
+					surfaceY + 3,
+					mx + 5,
+					surfaceY + 3 - mh * 0.7,
+				]).fill({
+					color: mossLit,
+					alpha: 0.55,
+				});
+			}
+			// Fallen petal flecks scattered on the surface.
+			const petalSpacing = 48;
+			for (let x = sx + 12; x < ex - 12; x += petalSpacing) {
+				const px = x + wobble(x, 41, petalSpacing * 0.4);
+				const pw = 3 + Math.abs(wobble(x, 43, 2));
+				g.ellipse(px, surfaceY + 1.5, pw, 1.5).fill({
+					color: 0xe88fbc,
+					alpha: 0.55,
+				});
+			}
+			break;
+		}
+		case "crystal": {
+			// Embedded crystal glint strokes in the rock surface.
+			const glintSpacing = 56;
+			for (let x = sx + 14; x < ex - 14; x += glintSpacing) {
+				const gx = x + wobble(x, 51, glintSpacing * 0.35);
+				const gl = 4 + Math.abs(wobble(x, 53, 3));
+				g.moveTo(gx, surfaceY + 2)
+					.lineTo(gx + gl, surfaceY + 5)
+					.stroke({ color: 0x9de8ff, width: 1.2, alpha: 0.55 });
+				// Tiny bright tip dot.
+				g.circle(gx + gl, surfaceY + 5, 1.2).fill({
+					color: 0xd0f8ff,
+					alpha: 0.7,
+				});
+			}
+			break;
+		}
+		case "ice": {
+			// Cracked-ice joint lines across the surface.
+			const iceSpacing = 44;
+			for (let x = sx + 8; x < ex - 8; x += iceSpacing) {
+				const jx = x + wobble(x, 61, iceSpacing * 0.3);
+				const jlen =
+					iceSpacing * 0.55 + Math.abs(wobble(x, 63, iceSpacing * 0.2));
+				g.moveTo(jx, surfaceY + 1)
+					.lineTo(jx + jlen * 0.5 + wobble(x, 65, 4), surfaceY + 6)
+					.lineTo(jx + jlen, surfaceY + 3)
+					.stroke({ color: 0x6ac8e8, width: 0.9, alpha: 0.35 });
+			}
+			// Glossy highlight band running the full span length.
+			g.rect(sx, surfaceY, ex - sx, 1).fill({ color: 0xe8f8ff, alpha: 0.25 });
+			break;
+		}
+		case "crypt": {
+			// Flagstone joint lines — evenly spaced dark horizontal-ish cracks.
+			const stoneSpacing = 52;
+			for (let x = sx + 8; x < ex - 8; x += stoneSpacing) {
+				// Vertical joint between stones.
+				g.moveTo(x, surfaceY + 2)
+					.lineTo(x + wobble(x, 71, 3), surfaceY + 12)
+					.stroke({ color: 0x18161e, width: 1, alpha: 0.35 });
+			}
+			// Faint horizontal joint band.
+			g.moveTo(sx, surfaceY + 8)
+				.lineTo(ex, surfaceY + 8)
+				.stroke({ color: 0x18161e, width: 0.8, alpha: 0.18 });
+			// Sparse grey moss in the cracks.
+			const mossCol = tint("#2e3832", accent, 0.2);
+			const mossSpacing = 80;
+			for (let x = sx + 16; x < ex - 16; x += mossSpacing) {
+				const mx = x + wobble(x, 77, mossSpacing * 0.3);
+				g.ellipse(mx, surfaceY + 9, 6, 2.5).fill({
+					color: mossCol,
+					alpha: 0.45,
+				});
+			}
+			break;
+		}
+		case "grove": {
+			// Dense moss tufts along the rim.
+			const mossCol = tint("#2e5228", accent, 0.3);
+			const mossLit = tint("#4a7a3e", accent, 0.3);
+			const mossSpacing = 44;
+			for (let x = sx + 6; x < ex - 6; x += mossSpacing) {
+				const mx = x + wobble(x, 81, mossSpacing * 0.32);
+				const mh = 4 + Math.abs(wobble(x, 83, 2.5));
+				g.poly([
+					mx - 5,
+					surfaceY + 3,
+					mx + 5,
+					surfaceY + 3,
+					mx,
+					surfaceY + 3 - mh,
+				]).fill({
+					color: mossCol,
+					alpha: 0.75,
+				});
+				g.poly([
+					mx + 1,
+					surfaceY + 3,
+					mx + 7,
+					surfaceY + 3,
+					mx + 4,
+					surfaceY + 3 - mh * 0.65,
+				]).fill({
+					color: mossLit,
+					alpha: 0.55,
+				});
+			}
+			// Tiny mushroom cap dots poking up along the surface.
+			const shroomSpacing = 96;
+			for (let x = sx + 24; x < ex - 24; x += shroomSpacing) {
+				const mx = x + wobble(x, 89, shroomSpacing * 0.35);
+				const cr = 3 + Math.abs(wobble(x, 91, 1.5));
+				// Tiny stem.
+				g.rect(mx - 0.8, surfaceY - cr * 0.8, 1.6, cr * 0.8).fill({
+					color: tint("#c8bf9e", accent, 0.2),
+					alpha: 0.7,
+				});
+				// Cap.
+				g.ellipse(mx, surfaceY - cr * 0.8, cr, cr * 0.55).fill({
+					color: tint("#7a5e90", accent, 0.3),
+					alpha: 0.78,
+				});
+			}
+			break;
+		}
+		case "molten": {
+			// Glowing orange seam lines running along the charred surface.
+			const seamSpacing = 60;
+			for (let x = sx + 12; x < ex - 12; x += seamSpacing) {
+				const sx2 = x + wobble(x, 93, seamSpacing * 0.3);
+				const slen =
+					seamSpacing * 0.5 + Math.abs(wobble(x, 95, seamSpacing * 0.25));
+				g.moveTo(sx2, surfaceY + 2)
+					.lineTo(sx2 + slen * 0.6 + wobble(x, 97, 5), surfaceY + 8)
+					.lineTo(sx2 + slen, surfaceY + 4)
+					.stroke({ color: 0xff6020, width: 1.2, alpha: 0.45 });
+				// Bright core of the seam.
+				g.moveTo(sx2, surfaceY + 2)
+					.lineTo(sx2 + slen * 0.6 + wobble(x, 97, 5), surfaceY + 8)
+					.lineTo(sx2 + slen, surfaceY + 4)
+					.stroke({ color: 0xffc040, width: 0.6, alpha: 0.35 });
+			}
+			break;
+		}
+		default: {
+			// Generic fallback: faint moss fringe matching the original look.
+			const mossCol = tint("#3a5c34", accent, 0.25);
+			const mossLit = tint("#4e7a46", accent, 0.25);
+			const mossSpacing = 64;
+			for (let x = sx + 8; x < ex - 8; x += mossSpacing) {
+				const mx = x + wobble(x, 23, mossSpacing * 0.35);
+				const mh = 4 + Math.abs(wobble(x, 29, 2));
+				g.poly([
+					mx - 4,
+					surfaceY + 3,
+					mx + 4,
+					surfaceY + 3,
+					mx,
+					surfaceY + 3 - mh,
+				]).fill({
+					color: mossCol,
+					alpha: 0.7,
+				});
+				g.poly([
+					mx + 2,
+					surfaceY + 3,
+					mx + 8,
+					surfaceY + 3,
+					mx + 5,
+					surfaceY + 3 - mh * 0.7,
+				]).fill({
+					color: mossLit,
+					alpha: 0.55,
+				});
+			}
+		}
+	}
 }
 
 /**
@@ -1288,29 +2072,86 @@ export function drawFloorStrip(
  *
  * Structural tones blend toward `accent` at 40 % weight when given; glints
  * and cracks are left neutral for readability.
+ * Theme-specific body treatment per `style`:
+ * - `blossom`/`grove`: mossy stone — earthy brown-grey body + grassy rim tint.
+ * - `crystal`: crystal-veined purple rock — lit gem veins on the surface.
+ * - `ice`: pale-blue ice slab — glossy top highlight + cracked seam detail.
+ * - `crypt`: cracked tomb stone — grey flagstone with dark joint lines.
+ * - `molten`: basalt slab — charred dark rock + ember seam along the top rim.
  *
  * @param width - Platform width in pixels.
  * @param height - Platform height in pixels.
  * @param accent - Optional theme accent `#rrggbb` to tint rock fills.
+ * @param style - Theme style discriminant driving the platform body look.
  * @returns A Container at local origin (0,0 = top-left corner).
  */
 export function drawPlatform(
 	width: number,
 	height: number,
-	accent?: string,
+	accent: string | undefined,
+	style: ThemeStyle,
 ): Container {
 	const c = new Container();
 	const g = new Graphics();
 
 	const r = 4; // corner radius (matches old roundRect)
 
-	// Rock fill colours — all tinted toward accent.
-	const bodyCol = tint("#4a3a63", accent, 0.4);
-	const rimCol = tint("#7a6e9e", accent, 0.35);
-	const shadowCol = tint("#2a2040", accent, 0.4);
-	const sideShade = tint("#3a2c52", accent, 0.4);
-	const mottleCol = tint("#5a4e78", accent, 0.35);
-	const crackCol = tint("#2e2445", accent, 0.4);
+	// Theme-driven body, rim and shadow colours.
+	const bodyCol =
+		style === "ice"
+			? tint("#3a5e72", accent, 0.3)
+			: style === "molten"
+				? tint("#2a1410", accent, 0.45)
+				: style === "crypt"
+					? tint("#40404e", accent, 0.35)
+					: style === "blossom" || style === "grove"
+						? tint("#3e4230", accent, 0.38)
+						: tint("#4a3a63", accent, 0.4); // crystal + default
+
+	const rimCol =
+		style === "ice"
+			? tint("#c0e8ff", accent, 0.2)
+			: style === "molten"
+				? tint("#5a2818", accent, 0.4)
+				: style === "crypt"
+					? tint("#6a6878", accent, 0.35)
+					: style === "blossom" || style === "grove"
+						? tint("#6a7a50", accent, 0.35)
+						: tint("#7a6e9e", accent, 0.35);
+
+	const shadowCol =
+		style === "ice"
+			? tint("#1a2e3c", accent, 0.35)
+			: style === "molten"
+				? tint("#100806", accent, 0.45)
+				: style === "crypt"
+					? tint("#28262e", accent, 0.4)
+					: tint("#2a2040", accent, 0.4);
+
+	const sideShade =
+		style === "ice"
+			? tint("#2c4c60", accent, 0.35)
+			: style === "molten"
+				? tint("#200e08", accent, 0.45)
+				: style === "crypt"
+					? tint("#30303c", accent, 0.4)
+					: tint("#3a2c52", accent, 0.4);
+
+	const mottleCol =
+		style === "blossom" || style === "grove"
+			? tint("#5a6840", accent, 0.35)
+			: style === "ice"
+				? tint("#4a7890", accent, 0.3)
+				: style === "molten"
+					? tint("#3a1e14", accent, 0.45)
+					: style === "crypt"
+						? tint("#505060", accent, 0.35)
+						: tint("#5a4e78", accent, 0.35);
+
+	const crackCol =
+		style === "molten"
+			? tint("#1a0c08", accent, 0.45)
+			: tint("#2e2445", accent, 0.4);
 
 	// Body fill.
 	g.roundRect(0, 0, width, height, r).fill(bodyCol);
@@ -1344,20 +2185,128 @@ export function drawPlatform(
 		g.ellipse(mx, height * 0.5, mw, mh).fill({ color: mottleCol, alpha: 0.28 });
 	}
 
-	// Crack detail — a short hairline fissure, position and lean from width+height.
-	if (height >= 10) {
-		const crackX = width * 0.55 + wobble(width + height, 43, width * 0.2);
-		const jx = wobble(width, 47, 3);
-		const crackLen = Math.min(height - 4, 10);
-		const cw = Math.max(0.6, height * 0.06);
-		g.moveTo(crackX, 3)
-			.lineTo(crackX + jx * 0.5, 3 + crackLen * 0.45)
-			.lineTo(crackX + jx, 3 + crackLen)
-			.stroke({ color: crackCol, width: cw, alpha: 0.3 });
-		// Thin branch.
-		g.moveTo(crackX + jx * 0.5, 3 + crackLen * 0.45)
-			.lineTo(crackX + jx * 0.5 + wobble(width, 53, 3), 3 + crackLen * 0.7)
-			.stroke({ color: crackCol, width: cw * 0.6, alpha: 0.22 });
+	// Theme-specific surface details on the platform body.
+	switch (style) {
+		case "ice": {
+			// Glossy highlight sweep across the top surface.
+			if (width > 16) {
+				g.roundRect(width * 0.08, 1, width * 0.55, rimH * 0.7, 2).fill({
+					color: 0xe8f8ff,
+					alpha: 0.35,
+				});
+			}
+			// Faint cracked-ice seam line.
+			if (height >= 8 && width > 20) {
+				const crackX = width * 0.45 + wobble(width, 47, width * 0.18);
+				const jx = wobble(width, 49, 2.5);
+				const crackLen = Math.min(height - 4, 9);
+				g.moveTo(crackX, 3)
+					.lineTo(crackX + jx * 0.4, 3 + crackLen * 0.5)
+					.lineTo(crackX + jx, 3 + crackLen)
+					.stroke({
+						color: 0x9de8ff,
+						width: Math.max(0.6, height * 0.05),
+						alpha: 0.4,
+					});
+			}
+			break;
+		}
+		case "molten": {
+			// Glowing ember seam along the top rim.
+			if (width > 16) {
+				g.rect(width * 0.1, 1, width * 0.8, 1.2).fill({
+					color: 0xff6020,
+					alpha: 0.55,
+				});
+				g.rect(width * 0.18, 1, width * 0.62, 0.7).fill({
+					color: 0xffc040,
+					alpha: 0.4,
+				});
+			}
+			// Short lava crack fissure.
+			if (height >= 8 && width > 20) {
+				const crackX = width * 0.55 + wobble(width + height, 43, width * 0.2);
+				const jx = wobble(width, 47, 3);
+				const crackLen = Math.min(height - 4, 10);
+				const cw = Math.max(0.6, height * 0.06);
+				g.moveTo(crackX, 3)
+					.lineTo(crackX + jx * 0.5, 3 + crackLen * 0.45)
+					.lineTo(crackX + jx, 3 + crackLen)
+					.stroke({ color: 0xff6020, width: cw, alpha: 0.55 });
+				g.moveTo(crackX, 3)
+					.lineTo(crackX + jx * 0.5, 3 + crackLen * 0.45)
+					.lineTo(crackX + jx, 3 + crackLen)
+					.stroke({ color: 0xffc040, width: cw * 0.45, alpha: 0.45 });
+			}
+			break;
+		}
+		case "crystal": {
+			// Crystal vein strokes across the platform face.
+			if (width > 24 && height >= 8) {
+				const vx = width * 0.35 + wobble(width, 55, width * 0.18);
+				const vlen = Math.min(height - 3, 11);
+				g.moveTo(vx, 3)
+					.lineTo(vx + wobble(width, 57, 3), 3 + vlen)
+					.stroke({
+						color: 0x9de8ff,
+						width: Math.max(0.8, height * 0.06),
+						alpha: 0.5,
+					});
+				g.circle(vx, 3, Math.max(1, height * 0.07)).fill({
+					color: 0xd0f8ff,
+					alpha: 0.7,
+				});
+			}
+			break;
+		}
+		case "crypt": {
+			// Flagstone joint line across the top third.
+			if (width > 28 && height >= 8) {
+				const jointX = width * 0.48 + wobble(width, 61, width * 0.18);
+				g.moveTo(jointX, 2)
+					.lineTo(jointX + wobble(width, 63, 2), height - 2)
+					.stroke({
+						color: crackCol,
+						width: Math.max(0.7, height * 0.05),
+						alpha: 0.35,
+					});
+			}
+			break;
+		}
+		case "blossom":
+		case "grove": {
+			// Generic faint crack (the same as default rock) — mossy stone is still stone.
+			if (height >= 10) {
+				const crackX = width * 0.55 + wobble(width + height, 43, width * 0.2);
+				const jx = wobble(width, 47, 3);
+				const crackLen = Math.min(height - 4, 10);
+				const cw = Math.max(0.6, height * 0.06);
+				g.moveTo(crackX, 3)
+					.lineTo(crackX + jx * 0.5, 3 + crackLen * 0.45)
+					.lineTo(crackX + jx, 3 + crackLen)
+					.stroke({ color: crackCol, width: cw, alpha: 0.3 });
+				g.moveTo(crackX + jx * 0.5, 3 + crackLen * 0.45)
+					.lineTo(crackX + jx * 0.5 + wobble(width, 53, 3), 3 + crackLen * 0.7)
+					.stroke({ color: crackCol, width: cw * 0.6, alpha: 0.22 });
+			}
+			break;
+		}
+		default: {
+			// Generic rock crack detail.
+			if (height >= 10) {
+				const crackX = width * 0.55 + wobble(width + height, 43, width * 0.2);
+				const jx = wobble(width, 47, 3);
+				const crackLen = Math.min(height - 4, 10);
+				const cw = Math.max(0.6, height * 0.06);
+				g.moveTo(crackX, 3)
+					.lineTo(crackX + jx * 0.5, 3 + crackLen * 0.45)
+					.lineTo(crackX + jx, 3 + crackLen)
+					.stroke({ color: crackCol, width: cw, alpha: 0.3 });
+				g.moveTo(crackX + jx * 0.5, 3 + crackLen * 0.45)
+					.lineTo(crackX + jx * 0.5 + wobble(width, 53, 3), 3 + crackLen * 0.7)
+					.stroke({ color: crackCol, width: cw * 0.6, alpha: 0.22 });
+			}
+		}
 	}
 
 	c.addChild(g);
