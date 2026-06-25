@@ -52,22 +52,39 @@ export function drawDecor(d: Decor, accent?: string): Container {
 	const col = (hex: string) => tint(hex, accent, 0.4);
 
 	if (d.kind === "stalactite") {
-		// Tapered multi-segment spire hanging DOWN from the ceiling (y=0).
-		const seg = 3 + (Math.floor(s) % 2); // 3-4 segments from size.
-		const tipX = wobble(s, 3, s * 0.18); // gentle lean.
+		// Lethal ceiling spike hanging DOWN from the ceiling (y=0). Drawn sharper
+		// and more menacing than a plain spire so it reads as a hazard.
+		const len = s * 2.2; // a touch longer for a pointier spike.
+		const halfW = s * 0.46;
+		const tipX = wobble(s, 3, s * 0.16); // gentle lean.
+
+		// Rock attachment band along the ceiling so it grows out of the cave roof
+		// instead of floating. A dark lump wider than the spike base.
+		const baseDark = tintStr("#2a2540", accent, 0.4);
+		const baseMid = tintStr("#3c3558", accent, 0.4);
+		g.ellipse(0, 0, halfW * 1.9, s * 0.28).fill(baseDark);
+		g.ellipse(0, -s * 0.04, halfW * 1.5, s * 0.2).fill(baseMid);
+
+		// Sharp spire body (lit edge + dark seam + banding via addSpire).
+		const seg = 4 + (Math.floor(s) % 2); // 4-5 segments = smoother, sharper.
 		addSpire(
 			g,
-			s * 0.5,
-			s * 2,
+			halfW,
+			len,
 			1,
 			tipX,
 			seg,
-			tintStr("#5f5780", accent, 0.4),
+			tintStr("#6b6394", accent, 0.4),
 			tintStr("#4a4360", accent, 0.4),
-			tintStr("#332e47", accent, 0.4),
+			tintStr("#2b2640", accent, 0.4),
 		);
-		// Wet drip glint near the tip.
-		g.circle(tipX, s * 1.82, s * 0.07).fill({ color: 0xbdb2e0, alpha: 0.8 });
+
+		// Glossy danger highlight: a bright slim streak down the lit side.
+		g.moveTo(-halfW * 0.32, s * 0.2)
+			.quadraticCurveTo(tipX * 0.5 - halfW * 0.1, len * 0.55, tipX, len * 0.92)
+			.stroke({ color: 0xe8e2ff, width: Math.max(1, s * 0.06), alpha: 0.5 });
+		// Sharp tip glint.
+		g.circle(tipX, len * 0.96, s * 0.06).fill({ color: 0xfdfbff, alpha: 0.95 });
 	} else if (d.kind === "stalagmite") {
 		// Tapered multi-segment spire rising UP from the floor (y=0).
 		const seg = 3 + (Math.floor(s) % 2);
