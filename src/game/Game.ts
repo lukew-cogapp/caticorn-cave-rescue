@@ -303,7 +303,7 @@ export class Game {
 		}
 	}
 
-	private loadLevel(index: number): void {
+	private loadLevel(index: number, playSting = true): void {
 		this.level = this.levels[index];
 
 		// Re-fill the night overlay with the per-theme ambient tint colour.
@@ -353,8 +353,10 @@ export class Game {
 
 		this.status = "playing";
 		this.emitHud();
-		// Brief mood sting for this cave's theme — one-shot, not looping.
-		this.audio.themeSting(this.level.themeStyle);
+		// Brief mood sting for this cave's theme — one-shot, not looping. Skipped
+		// on a level ADVANCE (clearLevel already plays the levelWin jingle, so
+		// firing the sting too would double up two sounds at the exit).
+		if (playSting) this.audio.themeSting(this.level.themeStyle);
 	}
 
 	// --- Simulation loop ---
@@ -653,7 +655,9 @@ export class Game {
 		}
 		this.audio.levelWin();
 		this.levelIndex += 1;
-		this.loadLevel(this.levelIndex);
+		// Skip the theme sting here — levelWin already played; the sting would
+		// double up at the exit.
+		this.loadLevel(this.levelIndex, false);
 	}
 
 	/** Push current state into the in-canvas HUD (called on events + each frame). */
