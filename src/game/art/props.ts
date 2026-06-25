@@ -229,6 +229,13 @@ export function drawMonster(
 		return c;
 	}
 
+	// Full per-theme reskin: if this theme provides a monsterSkin for this kind,
+	// use it instead of the base shape (and skip the flourish).
+	if (style) {
+		const skin = getThemePack(style).monsterSkin?.(kind, accent);
+		if (skin) return skin;
+	}
+
 	const c = new Container();
 	const g = new Graphics();
 	// Body fills blend a fair way toward the accent; outlines a touch less.

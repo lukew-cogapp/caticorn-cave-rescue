@@ -211,6 +211,26 @@ export interface ThemePack {
 		headY: number,
 		hw: number,
 	): void;
+
+	/**
+	 * Draw the WHOLE monster for this theme — a full reskin, not a flourish. When
+	 * present for a given `kind`, drawMonster uses this instead of the base shape
+	 * (and skips {@link monsterFlourish}); return `null` to fall back to the base
+	 * crawler/bat/lurker for kinds this theme doesn't reskin.
+	 *
+	 * MUST keep the gameplay silhouette readable for its role: crawler = a
+	 * stompable ground walker with the head readable on top; bat = a flyer; lurker
+	 * = a ceiling-clinger drawn growing DOWNWARD from y=0. Bottom-centre origin
+	 * (crawler/bat upward, lurker downward). Stay within the kind's usual footprint
+	 * so the existing aabb/stomp still feels right. Deterministic; tint toward
+	 * `accent` where sensible.
+	 *
+	 * Optional. Omitted → base shape + optional {@link monsterFlourish}.
+	 */
+	monsterSkin?(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null;
 }
 
 /** Platform body tones for a theme (all already blended toward the accent). */
