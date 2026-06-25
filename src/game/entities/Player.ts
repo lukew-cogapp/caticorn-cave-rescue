@@ -28,6 +28,13 @@ const APEX_THRESHOLD = 90;
 const APEX_GRAVITY = 0.6;
 const FALL_GRAVITY = 1.45;
 
+/** |vel.x| under which the player counts as standing still (for idle breathing). */
+const IDLE_SPEED_THRESHOLD = 6;
+/** Idle breathing angular speed (radians/sec) — slow, calm bob. */
+const IDLE_BREATH_SPEED = 3.2;
+/** Idle breathing amplitude as a fraction of scale.y (very subtle). */
+const IDLE_BREATH_AMPLITUDE = 0.03;
+
 /**
  * The player character: a caticorn rescuer with skid-eased horizontal movement,
  * gravity, jumping, world-bound clamping, and one-way platform landing.
@@ -54,6 +61,8 @@ export class Player extends Entity {
 
 	/** Current squash/stretch: 0 = neutral, >0 = stretch tall, <0 = squash flat. */
 	private squash = 0;
+	/** Accumulated phase for the idle breathing bob, advanced by dt while idle. */
+	private idlePhase = 0;
 	/** True after a landing this frame (Game reads + clears it for juice fx). */
 	justLanded = false;
 	/** Downward speed at the moment of the last landing (for shake/dust scale). */
@@ -205,10 +214,26 @@ export class Player extends Entity {
 			: Math.max(-0.3, Math.min(0.4, -this.vel.y / 1600));
 		this.squash += (target - this.squash) * Math.min(1, dt * 12);
 
+		// Idle breathing: a tiny vertical squash oscillation while standing still
+		// on the ground. It only modulates scale.y (never the facing flip) and is
+		// blended into the squash-driven scale below so it can't fight it.
+		const idle =
+			this.onGround &&
+			Math.abs(this.vel.x) < IDLE_SPEED_THRESHOLD &&
+			!left &&
+			!right;
+		let breath = 0;
+		if (idle) {
+			this.idlePhase += dt * IDLE_BREATH_SPEED;
+			breath = Math.sin(this.idlePhase) * IDLE_BREATH_AMPLITUDE;
+		} else {
+			this.idlePhase = 0;
+		}
+
 		this.syncView();
-		this.view.scale.x = this.facing;
 		// Apply squash/stretch: positive = taller+thinner, negative = flatter+wider.
-		this.view.scale.y = 1 + this.squash;
+		// The idle breath adds a gentle multiplicative bob on top of scale.y only.
+		this.view.scale.y = (1 + this.squash) * (1 + breath);
 		this.view.scale.x = this.facing * (1 - this.squash * 0.5);
 	}
 
@@ -228,6 +253,12 @@ export class Player extends Entity {
 		this.onGround = false;
 		this.jumpsUsed = 0;
 		// A trampoline launch isn't a held jump, so it can't be cut short.
+		this.cuttable = false;
+	}
+
+	/** Slam the player straight down (e.g. struck by falling poop in mid-air). */
+	slamDown(): void {
+		this.vel.y = Math.max(this.vel.y, 900);
 		this.cuttable = false;
 	}
 

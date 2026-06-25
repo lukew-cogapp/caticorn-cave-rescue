@@ -29,7 +29,10 @@ export interface Rect {
 }
 
 /** A solid platform the player can stand on. */
-export interface Platform extends Rect {}
+export interface Platform extends Rect {
+	/** When true, the platform's top is drawn with grassy blades for variety. */
+	grass?: boolean;
+}
 
 /** Per-entity spawn data from a level (bottom-centre positions). */
 export interface CaticornSpec extends Vec2 {

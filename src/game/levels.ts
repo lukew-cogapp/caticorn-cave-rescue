@@ -201,7 +201,13 @@ function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
 		}
 
 		const py = GROUND_Y - drop;
-		const plat: Platform = { x: px, y: py, w: RESCUE_W, h: RESCUE_H };
+		const plat: Platform = {
+			x: px,
+			y: py,
+			w: RESCUE_W,
+			h: RESCUE_H,
+			grass: rng() < 0.5,
+		};
 		platforms.push(plat);
 		// Early levels use shackles (free on contact); later levels introduce
 		// cages (must be stomped). The last level mixes both for variety.
@@ -239,7 +245,14 @@ function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
 	if (worldWidth > cursor)
 		groundSegs.push({ x: cursor, w: worldWidth - cursor });
 	for (const s of groundSegs) {
-		platforms.push({ x: s.x, y: GROUND_Y, w: s.w, h: GROUND_H });
+		// Most ground segments get a grassy top for variety (deterministic).
+		platforms.push({
+			x: s.x,
+			y: GROUND_Y,
+			w: s.w,
+			h: GROUND_H,
+			grass: rng() < 0.7,
+		});
 	}
 
 	const trampolines: TrampolineSpec[] = [];
@@ -252,7 +265,9 @@ function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
 	}
 
 	const monsters = placeMonsters(c, worldWidth, groundSegs, rng);
-	const poops = placePoops(c, worldWidth, groundSegs, trampolines, rng);
+	// Poops are no longer authored into levels: they only come from ceiling
+	// lurkers (so early levels without a lurker have none).
+	const poops: PoopSpec[] = [];
 	const flutes = placeFlutes(worldWidth, groundSegs, rng);
 	const decor = makeDecor(worldWidth, groundSegs, rescues, trampolines, rng);
 
@@ -384,33 +399,6 @@ function widestSeg(segs: GroundSeg[]): GroundSeg | null {
 		if (!best || s.w > best.w) best = s;
 	}
 	return best;
-}
-
-/**
- * Scatter poops on solid ground only: never on the spawn tile or within ~120px
- * of spawn, never over a pit, and never stacked on a trampoline.
- */
-function placePoops(
-	c: LevelConfig,
-	worldWidth: number,
-	segs: GroundSeg[],
-	trampolines: TrampolineSpec[],
-	rng: () => number,
-): PoopSpec[] {
-	const poops: PoopSpec[] = [];
-	const poopCount = 2 + c.count;
-	const spawnClear = 120;
-	const trampClear = 40;
-
-	for (let i = 0; i < poopCount; i++) {
-		const jitter = (rng() - 0.5) * 40;
-		const x = 180 + (i + 1) * (worldWidth / (poopCount + 1)) + jitter;
-		if (x < spawnClear) continue;
-		if (!onSolidGround(x, segs)) continue;
-		if (trampolines.some((t) => Math.abs(t.x - x) < trampClear)) continue;
-		poops.push({ x, y: GROUND_Y });
-	}
-	return poops;
 }
 
 /**

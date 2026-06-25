@@ -4,6 +4,7 @@ import {
 	drawDecor,
 	drawFlute,
 	drawGhost,
+	drawGrassBlades,
 	drawPoop,
 	drawTrampoline,
 	type PlayerVariant,
@@ -14,6 +15,7 @@ import { Exit } from "./entities/Exit";
 import { createMonster, type Monster } from "./entities/Monster";
 import { Player } from "./entities/Player";
 import { buildLevels } from "./levels";
+import { Fireflies } from "./systems/Fireflies";
 import { Hud } from "./systems/Hud";
 import { Particles } from "./systems/Particles";
 import { ScreenShake } from "./systems/ScreenShake";
@@ -36,6 +38,8 @@ const DEATH_ANIM_TIME = 1.1;
 const POOP_SLOW = 0.55;
 /** Seconds the poop slow + brown feet linger after leaving the poop. */
 const POOP_LINGER = 1;
+/** Seconds a ground poop lasts before fading out and disappearing. */
+const POOP_LIFE = 5;
 /** Collision box (centred on poop's bottom-centre) used for the slow zone. */
 const POOP_BOX = { halfWidth: 14, height: 22 };
 
@@ -79,6 +83,8 @@ export class Game {
 
 	/** Fixed in-canvas HUD (level / rescued / lives), above the world. */
 	private readonly hud = new Hud();
+	/** Ambient background fireflies (added behind gameplay in the world). */
+	private readonly fireflies = new Fireflies();
 	/** Juice systems: particle pool (parented to the world) + screen shake. */
 	private readonly particles = new Particles(this.world);
 	/** Screen shake; initialised in the constructor once `app` is set. */
@@ -112,8 +118,8 @@ export class Game {
 	private caticorns: Caticorn[] = [];
 	private monsters: Monster[] = [];
 	private exit!: Exit;
-	/** Poop slow-zones: collision box per poop sprite. */
-	private poops: Rect[] = [];
+	/** Poop slow-zones: sprite + collision box + remaining lifetime (fades out). */
+	private poops: { view: Container; box: Rect; life: number }[] = [];
 	/** Trampoline launch-zones: collision box per trampoline sprite. */
 	private trampolines: Rect[] = [];
 	/** Lethal spike collision boxes (stalactites + stalagmites). */
@@ -241,8 +247,11 @@ export class Game {
 		this.invulnTimer = 0;
 		this.fallingPoops = [];
 
-		// Background gradient + cave mood.
+		// Background gradient + cave mood, then ambient fireflies in front of it
+		// but behind gameplay.
 		this.world.addChild(drawBackground(this.level.worldWidth, this.level.bg));
+		this.fireflies.spawn(this.level.worldWidth, 14);
+		this.world.addChild(this.fireflies.view);
 
 		// Decor placement by kind: stalactites hang from the ceiling, wall cracks
 		// use their own y up the cave wall, everything else sits on the floor.
@@ -268,7 +277,8 @@ export class Game {
 			}
 		}
 
-		// Platforms (drawn here; entities don't own static geometry).
+		// Platforms (drawn here; entities don't own static geometry). Some get a
+		// grassy top for variety.
 		for (const p of this.level.platforms) {
 			this.world.addChild(
 				new Graphics()
@@ -276,11 +286,12 @@ export class Game {
 					.fill("#4a3a63")
 					.stroke({ color: "#6d5a8c", width: 2 }),
 			);
-		}
-
-		// Poops: static slow-zone hazards on the ground.
-		for (const spec of this.level.poops) {
-			this.dropPoopAt(spec.x, spec.y);
+			if (p.grass) {
+				const grass = drawGrassBlades(p.w);
+				grass.x = p.x;
+				grass.y = p.y;
+				this.world.addChild(grass);
+			}
 		}
 
 		// Trampolines: bounce-zones drawn on the ground.
@@ -338,9 +349,9 @@ export class Game {
 	}
 
 	/**
-	 * Spawn a poop sprite + slow-zone collision box at a world point. Used for
-	 * both level-authored poops and poop dropped by ceiling lurkers. Defaults to
-	 * the ground line when no y is given.
+	 * Spawn a poop sprite + slow-zone collision box at a world point (where a
+	 * ceiling lurker's drop landed). The poop fades out and is removed after
+	 * POOP_LIFE seconds. Defaults to the ground line when no y is given.
 	 */
 	private dropPoopAt(x: number, y: number = GAME_HEIGHT - 30): void {
 		const g = drawPoop();
@@ -348,11 +359,30 @@ export class Game {
 		g.y = y;
 		this.world.addChild(g);
 		this.poops.push({
-			x: x - POOP_BOX.halfWidth,
-			y: y - POOP_BOX.height,
-			w: POOP_BOX.halfWidth * 2,
-			h: POOP_BOX.height,
+			view: g,
+			box: {
+				x: x - POOP_BOX.halfWidth,
+				y: y - POOP_BOX.height,
+				w: POOP_BOX.halfWidth * 2,
+				h: POOP_BOX.height,
+			},
+			life: POOP_LIFE,
 		});
+	}
+
+	/** Age ground poops; fade out the last second and remove when spent. */
+	private updatePoops(dt: number): void {
+		for (let i = this.poops.length - 1; i >= 0; i--) {
+			const poop = this.poops[i];
+			poop.life -= dt;
+			if (poop.life <= 0) {
+				this.world.removeChild(poop.view);
+				poop.view.destroy({ children: true });
+				this.poops.splice(i, 1);
+			} else if (poop.life < 1) {
+				poop.view.alpha = poop.life; // fade over the final second
+			}
+		}
 	}
 
 	/** Spawn a poop that falls from `y` and becomes a ground hazard on landing. */
@@ -364,20 +394,57 @@ export class Game {
 		this.fallingPoops.push({ view: g, vy: 60, x });
 	}
 
-	/** Advance falling poops; when one reaches the floor it lands as a hazard. */
+	/**
+	 * Advance falling poops. A poop lands on the first platform top it crosses
+	 * within that platform's horizontal span (so it can settle on raised
+	 * platforms, not just the floor). If it crosses no platform — i.e. it falls
+	 * through a pit gap — it drops off the bottom of the world and is discarded.
+	 */
 	private updateFallingPoops(dt: number): void {
-		const floorY = GAME_HEIGHT - 30;
+		const pBox = this.player.aabb();
 		for (let i = this.fallingPoops.length - 1; i >= 0; i--) {
 			const fp = this.fallingPoops[i];
+			const prevY = fp.view.y;
 			fp.vy += 900 * dt; // gravity
 			fp.view.y += fp.vy * dt;
-			if (fp.view.y >= floorY) {
-				// Landed: remove the faller and register a ground poop hazard.
+
+			// A falling poop that hits the player slaps them straight down and
+			// applies the poop slow, then is consumed (no ground hazard left).
+			if (
+				Math.abs(fp.x - this.player.pos.x) < 22 &&
+				fp.view.y >= pBox.y &&
+				fp.view.y <= pBox.y + pBox.h + 8
+			) {
+				this.player.slamDown();
+				this.poopTimer = POOP_LINGER;
+				this.particles.burst(fp.x, fp.view.y, "dust", 5);
 				this.world.removeChild(fp.view);
 				fp.view.destroy({ children: true });
 				this.fallingPoops.splice(i, 1);
-				this.dropPoopAt(fp.x, floorY);
-				this.particles.burst(fp.x, floorY - 6, "dust", 5);
+				continue;
+			}
+
+			// Find the highest platform top this poop crossed this frame at its x.
+			let landY: number | null = null;
+			for (const p of this.level.platforms) {
+				if (fp.x < p.x || fp.x > p.x + p.w) continue; // outside this platform
+				if (prevY <= p.y && fp.view.y >= p.y) {
+					if (landY === null || p.y < landY) landY = p.y;
+				}
+			}
+
+			if (landY !== null) {
+				// Settle as a ground hazard on the platform surface.
+				this.world.removeChild(fp.view);
+				fp.view.destroy({ children: true });
+				this.fallingPoops.splice(i, 1);
+				this.dropPoopAt(fp.x, landY);
+				this.particles.burst(fp.x, landY - 6, "dust", 5);
+			} else if (fp.view.y > GAME_HEIGHT + 40) {
+				// Fell through a gap and off the bottom: discard, no hazard.
+				this.world.removeChild(fp.view);
+				fp.view.destroy({ children: true });
+				this.fallingPoops.splice(i, 1);
 			}
 		}
 	}
@@ -437,6 +504,8 @@ export class Game {
 			if (dropX !== null) this.spawnFallingPoop(dropX, m.pos.y + 28);
 		}
 		this.updateFallingPoops(dt);
+		this.updatePoops(dt);
+		this.fireflies.update(dt);
 
 		// Invulnerability after a hit: count down and blink the player.
 		if (this.invulnTimer > 0) {
@@ -486,7 +555,7 @@ export class Game {
 		// player slowed, brown-footed and unable to jump for POOP_LINGER seconds
 		// after they leave it.
 		for (const poop of this.poops) {
-			if (rectsOverlap(pBox, poop)) {
+			if (rectsOverlap(pBox, poop.box)) {
 				this.poopTimer = POOP_LINGER;
 				break;
 			}
@@ -620,12 +689,14 @@ export class Game {
 	 * @returns true if the run ended (caller should stop this frame's update).
 	 */
 	private hitByMonster(): boolean {
-		this.lives -= 1;
-		this.emitHud();
-		if (this.lives <= 0) {
+		// On the last life, hand off to the ghost death, which owns the single
+		// life decrement (in updateDeath) — don't decrement here too.
+		if (this.lives <= 1) {
 			this.beginDeath();
 			return true;
 		}
+		this.lives -= 1;
+		this.emitHud();
 		this.audio.hurt();
 		this.shake.add(4);
 		this.freezeTimer = FREEZE_STOMP;
