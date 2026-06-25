@@ -23,11 +23,23 @@ import { EN } from "../game/strings/en";
 			<p class="mt-2 text-stone-600">{EN.tagline}</p>
 		</header>
 
-		<!-- Game canvas (HUD is rendered inside the canvas) -->
+		<!-- HUD score bar: lives ABOVE the playfield so it never overlaps spikes,
+		     monsters or the player. Hidden until a run starts. -->
+		<div
+			id="hud-bar"
+			class="mx-auto mt-4 hidden w-full items-center justify-between gap-3 rounded-xl bg-stone-900/80 px-4 py-2 text-sm font-bold text-amber-100 shadow-md ring-1 ring-white/10 sm:text-base"
+			style="max-width: min(100%, calc(80vh * 16 / 9));"
+		>
+			<span id="hud-level" class="truncate"></span>
+			<span id="hud-rescued" class="shrink-0 text-pink-200"></span>
+			<span id="hud-stats" class="shrink-0 tabular-nums text-amber-200"></span>
+		</div>
+
+		<!-- Game canvas -->
 		<div
 			id="game-stage"
 			tabindex="-1"
-			class="relative mx-auto mt-4 aspect-video w-full overflow-hidden rounded-2xl border-4 border-stone-900 shadow-lg focus:outline-none"
+			class="relative mx-auto mt-2 aspect-video w-full overflow-hidden rounded-2xl border-4 border-stone-900 shadow-lg focus:outline-none"
 			style="max-width: min(100%, calc(80vh * 16 / 9));"
 		>
 			<canvas id="game-canvas" class="block h-full w-full"></canvas>
@@ -203,9 +215,14 @@ import { EN } from "../game/strings/en";
 	const cardsWrap = document.getElementById("char-cards") as HTMLDivElement;
 	const startBtn = document.getElementById("start-btn") as HTMLButtonElement;
 
-	// The level / rescued / lives readouts are drawn inside the canvas (Pixi HUD).
-	// This callback only drives the DOM win/lose overlay.
+	// The level / rescued / score readouts live in a DOM bar ABOVE the canvas
+	// (so they never overlap gameplay). This callback drives that bar plus the
+	// win/lose overlay.
 	const runSummary = document.getElementById("run-summary") as HTMLParagraphElement;
+	const hudBar = document.getElementById("hud-bar") as HTMLDivElement;
+	const hudLevel = document.getElementById("hud-level") as HTMLSpanElement;
+	const hudRescued = document.getElementById("hud-rescued") as HTMLSpanElement;
+	const hudStats = document.getElementById("hud-stats") as HTMLSpanElement;
 
 	/** Format seconds as m:ss. */
 	function formatTime(seconds: number): string {
@@ -215,6 +232,18 @@ import { EN } from "../game/strings/en";
 	}
 
 	function renderHud(s: HudState) {
+		// Live score bar, shown only while playing.
+		if (s.status === "playing") {
+			const name = EN.levels[s.levelName] ?? s.levelName;
+			hudLevel.textContent = EN.hudLevel(name, s.level, s.totalLevels);
+			hudRescued.textContent = EN.hudRescued(s.rescued, s.toRescue);
+			hudStats.textContent = `${EN.hudScore(s.score)}   ${formatTime(s.elapsed)}`;
+			hudBar.classList.remove("hidden");
+			hudBar.classList.add("flex");
+		} else {
+			hudBar.classList.add("hidden");
+			hudBar.classList.remove("flex");
+		}
 		if (s.status === "playing") {
 			overlay.classList.add("hidden");
 			overlay.classList.remove("flex");

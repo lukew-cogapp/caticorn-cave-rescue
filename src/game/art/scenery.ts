@@ -429,8 +429,8 @@ export function drawBackground(
 		});
 	}
 
-	// Soft top + bottom vignette for cave depth.
-	g.rect(0, 0, worldWidth, 40).fill({ color: 0x000000, alpha: 0.22 });
+	// Soft bottom vignette for cave depth (top vignette removed; it read as a
+	// dark bar now the HUD lives in a DOM bar above the canvas).
 	g.rect(0, GAME_HEIGHT - 50, worldWidth, 50).fill({
 		color: 0x000000,
 		alpha: 0.28,
@@ -639,8 +639,9 @@ export function drawBackgroundLayers(
 		});
 	}
 
-	// Vignette.
-	nearG.rect(0, 0, worldWidth, 40).fill({ color: 0x000000, alpha: 0.22 });
+	// Bottom vignette only (grounds the floor). The top vignette was removed:
+	// with the HUD now in a DOM bar above the canvas it just read as a stray
+	// dark bar across the top of the play area.
 	nearG.rect(0, GAME_HEIGHT - 50, worldWidth, 50).fill({
 		color: 0x000000,
 		alpha: 0.28,

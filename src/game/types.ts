@@ -122,6 +122,8 @@ export interface HudState {
 	totalRescued: number;
 	/** Elapsed run time in seconds (for the end summary). */
 	elapsed: number;
+	/** Run score (rescues + stomps + flutes), shown live in the DOM HUD bar. */
+	score: number;
 }
 
 export type HudCallback = (state: HudState) => void;

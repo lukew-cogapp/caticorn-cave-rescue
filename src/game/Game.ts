@@ -32,7 +32,6 @@ import { updateWaypoints } from "./game/waypoints";
 import { buildLevels } from "./levels";
 import { Fireflies } from "./systems/Fireflies";
 import { HealthBar } from "./systems/HealthBar";
-import { Hud } from "./systems/Hud";
 import { Motes } from "./systems/Motes";
 import { Particles } from "./systems/Particles";
 import { ScreenShake } from "./systems/ScreenShake";
@@ -70,8 +69,6 @@ export class Game {
 	/** Ambient-glow pulse phase accumulator in seconds (drives glow breathing). */
 	private glowPhase = 0;
 
-	/** Fixed in-canvas HUD (level / rescued / lives), above the world. */
-	private readonly hud = new Hud();
 	/** Ambient background fireflies (added behind gameplay in the world). */
 	private readonly fireflies = new Fireflies();
 	/** Ambient drifting cave motes (foreground atmosphere, parented to the world). */
@@ -159,10 +156,6 @@ export class Game {
 		this.nightOverlay.eventMode = "none";
 		this.nightOverlay.alpha = 0;
 		this.app.stage.addChild(this.nightOverlay);
-
-		// In-canvas HUD, drawn above the world + tint so it stays legible. Fixed
-		// screen position (added to stage, not the scrolling world).
-		this.app.stage.addChild(this.hud.view);
 
 		this.waypoints.eventMode = "none";
 		this.waypoints.visible = false;
@@ -542,26 +535,19 @@ export class Game {
 	}
 
 	/** Push current state into the in-canvas HUD (called on events + each frame). */
+	/** Push the live HUD readouts to the DOM bar (called every frame for the
+	 * timer). Thin wrapper kept for the per-frame call site. */
 	private refreshHud(): void {
-		if (!this.level) return;
-		this.hud.update({
-			levelName: this.level.name,
-			levelIndex: this.levelIndex,
-			totalLevels: this.levels.length,
-			rescued: this.caticorns.filter((c) => c.rescued).length,
-			toRescue: this.caticorns.length,
-			score: this.state.score,
-			elapsed: this.elapsed,
-		});
+		this.emitHud();
 	}
 
 	private emitHud(): void {
+		if (!this.level) return;
 		const rescued = this.caticorns.filter((c) => c.rescued).length;
 		const toRescue = this.caticorns.length;
 
-		this.refreshHud();
-
-		// Still notify the host page for the win/lose overlay (DOM).
+		// The HUD bar (level / rescued / score / timer) and the win-lose flow both
+		// live in the DOM now, driven entirely by this state push.
 		this.onHud({
 			level: this.levelIndex + 1,
 			levelName: this.level.name,
@@ -572,6 +558,7 @@ export class Game {
 			status: this.status,
 			totalRescued: this.state.totalRescued,
 			elapsed: this.elapsed,
+			score: this.state.score,
 		});
 	}
 }
