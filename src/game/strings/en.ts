@@ -14,16 +14,25 @@ export const EN = {
 	startButton: "Start rescue",
 	/** Punchy one-liner mission shown big on the start screen. */
 	instructionsHeadline: "Free the caticorns. Beat the cave. Be a hero!",
-	/** Scannable how-to lines (emoji-led) for the start screen. */
-	instructionsGoal:
-		"🦄 Free every caticorn (stomp the cages, hug the shackled ones), then dash to the glowing exit.",
-	instructionsHazards:
-		"💀 Stomp baddies, leap the pits, duck the ceiling spikes, dodge the falling poop.",
-	instructionsExtras:
-		"🎵 Boing off trampolines, grab flutes to heal, clear all four caves to win!",
+	/** Scannable how-to lines for the start screen: an icon + its text, rendered
+	 * as an aligned two-column grid (icon gutter + wrapping copy). */
+	instructions: [
+		{
+			icon: "🦄",
+			text: "Free every caticorn (stomp the cages, hug the shackled ones), then dash to the glowing exit.",
+		},
+		{
+			icon: "💀",
+			text: "Stomp baddies, leap the pits, duck the ceiling spikes, dodge the falling poop.",
+		},
+		{
+			icon: "🎵",
+			text: "Boing off trampolines, grab flutes to heal, clear all four caves to win!",
+		},
+	],
 	/** Controls line, kept compact. */
 	controlsHint:
-		"⌨️ Move: Arrows / WASD   ·   Jump + double-jump: Up / Space / W   ·   Pause: P",
+		"Move: Arrows / WASD   ·   Jump + double-jump: Up / Space / W   ·   Pause: P",
 
 	/** In-canvas HUD. */
 	hudRescued: (rescued: number, total: number) => `Rescued ${rescued}/${total}`,
