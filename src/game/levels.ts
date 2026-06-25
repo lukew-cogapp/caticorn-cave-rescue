@@ -17,10 +17,16 @@ import {
 	TRAMPOLINE_CAP,
 	trampolineGroundX,
 } from "./level/reachability";
-import { type LayoutStyle, pickStyles, pickThemes } from "./level/themes";
+import {
+	type AmbientKind,
+	type LayoutStyle,
+	pickStyles,
+	pickThemes,
+} from "./level/themes";
 import {
 	type CaticornSpec,
 	type Decor,
+	type DecorKind,
 	type FluteSpec,
 	GAME_WIDTH,
 	GROUND_Y,
@@ -46,6 +52,12 @@ interface LevelConfig {
 	accent: string;
 	/** Layout style: how rescue platforms are arranged. */
 	style: LayoutStyle;
+	/** Signature non-lethal ceiling accent decor, weighted by repetition. */
+	ceilingKinds: DecorKind[];
+	/** Signature floor decor, weighted by repetition. */
+	floorKinds: DecorKind[];
+	/** Ambient drifting particle for this cave. */
+	ambient: AmbientKind;
 }
 
 /**
@@ -59,19 +71,23 @@ interface LevelConfig {
  * The difficulty ramp is fixed (caticorn/monster counts + speed rise by level),
  * but the THEME (name, background, accent) and layout STYLE of each level are
  * picked from the seed, so each seed produces a visibly different, but equally
- * fair, set of four caves.
+ * fair set of caves. A full run plays one cave per bespoke theme (so every run
+ * visits all of them), with the theme ORDER shuffled by the seed.
  *
  * @param baseSeed Seed for the deterministic theme + layout PRNG. Pass a fresh
  *   value per run for varied caves; omit (default) for a stable set (used by
  *   tests).
  */
 export function buildLevels(baseSeed = 1000): Level[] {
-	// Fixed per-level difficulty ramp; theme/style come from the seed below.
+	// Fixed per-level difficulty ramp; theme/style come from the seed below. One
+	// entry per bespoke cave theme so a full run visits every theme once.
 	const ramp = [
 		{ count: 2, speed: 220, monsterCount: 1 },
 		{ count: 3, speed: 250, monsterCount: 2 },
-		{ count: 4, speed: 285, monsterCount: 3 },
-		{ count: 5, speed: 320, monsterCount: 4 },
+		{ count: 4, speed: 280, monsterCount: 3 },
+		{ count: 4, speed: 300, monsterCount: 3 },
+		{ count: 5, speed: 325, monsterCount: 4 },
+		{ count: 5, speed: 350, monsterCount: 5 },
 	];
 
 	// One PRNG off the base seed drives theme + style selection for the whole run
@@ -88,6 +104,9 @@ export function buildLevels(baseSeed = 1000): Level[] {
 		bg: themes[i].bg,
 		accent: themes[i].accent,
 		style: styles[i],
+		ceilingKinds: themes[i].ceilingKinds,
+		floorKinds: themes[i].floorKinds,
+		ambient: themes[i].ambient,
 	}));
 
 	return configs.map((c, i) => makeLevel(c, i, baseSeed));
@@ -215,7 +234,15 @@ function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
 	// lurkers (so early levels without a lurker have none).
 	const poops: PoopSpec[] = [];
 	const flutes = placeFlutes(worldWidth, groundSegs, rng);
-	const decor = makeDecor(worldWidth, groundSegs, rescues, trampolines, rng);
+	const decor = makeDecor(
+		worldWidth,
+		groundSegs,
+		rescues,
+		trampolines,
+		c.ceilingKinds,
+		c.floorKinds,
+		rng,
+	);
 
 	const level: Level = {
 		name: c.name,
@@ -229,6 +256,7 @@ function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
 		decor,
 		bg: c.bg,
 		themeAccent: c.accent,
+		ambient: c.ambient,
 		moveSpeed: c.speed,
 		spawn: { x: 60, y: GROUND_Y },
 		exit: { x: worldWidth - 60, y: GROUND_Y },
@@ -334,24 +362,41 @@ function placeFlutes(
 /**
  * Scatter cave decor across the world for a furnished-but-not-cluttered feel.
  *
+ * The PLACEMENT logic (densities, spacing, skip-rates, fairness exclusions) is
+ * fixed; only the CHOICE of which decorative kind to place is sampled from the
+ * theme's signature arrays, so each bespoke cave looks distinct while staying
+ * equally fair. Kinds are sampled from the weighted arrays via
+ * `kinds[Math.floor(rng() * kinds.length)]` (repetition in the array = weight).
+ *
  * Three independent passes, all deterministic (seeded rng only):
  *  - Ceiling: "stalactite" (lethal spikes) kept OFF forced jump arcs (above a
- *    rescue platform's landing zone or a trampoline's bounce corridor), plus a
- *    RARE "crystal" accent (a small subtle gem after the art change).
- *  - Floor: "pebble" / "mushroom" / "moss" placed only on solid ground (never
- *    over a pit), at low density and emitted for only ~55% of candidates so it
- *    stays sparse.
+ *    rescue platform's landing zone or a trampoline's bounce corridor), mixed
+ *    with a sprinkling of the theme's non-lethal `ceilingKinds` accent decor
+ *    (e.g. blossom branches, gem clusters, icicles) replacing the old hardcoded
+ *    "crystal".
+ *  - Floor: the theme's `floorKinds` placed only on solid ground (never over a
+ *    pit), at the same low density and skip-rate so it stays sparse.
  *  - Walls/background: faint "crack" texture at varying heights up the cave,
- *    needing no ground since it is purely decorative background.
+ *    needing no ground since it is purely decorative background, with the
+ *    occasional embedded theme ceiling accent for depth.
+ *
+ * @param ceilingKinds Theme's non-lethal ceiling accent kinds (weighted).
+ * @param floorKinds Theme's floor decor kinds (weighted).
  */
 function makeDecor(
 	worldWidth: number,
 	segs: GroundSeg[],
 	rescues: { plat: Platform; needsTrampoline: boolean }[],
 	trampolines: TrampolineSpec[],
+	ceilingKinds: DecorKind[],
+	floorKinds: DecorKind[],
 	rng: () => number,
 ): Decor[] {
 	const decor: Decor[] = [];
+
+	/** Sample a decor kind from a weighted array using the existing rng. */
+	const sample = (kinds: DecorKind[]): DecorKind =>
+		kinds[Math.floor(rng() * kinds.length)];
 
 	/** Horizontal exclusion zones for ceiling spikes (forced jump arcs). */
 	const ceilingNoGo: { x: number; w: number }[] = [];
@@ -370,42 +415,40 @@ function makeDecor(
 	const inCeilingNoGo = (x: number) =>
 		ceilingNoGo.some((z) => x >= z.x && x <= z.x + z.w);
 
-	// --- Ceiling pass: stalactites (lethal) + crystal accents, closely spaced. ---
+	// --- Ceiling pass: stalactites (lethal) + theme accent decor, closely spaced. ---
 	for (let x = 50; x < worldWidth - 30; x += 78 + rng() * 26) {
 		const dx = x + rng() * 30;
-		// Crystals are a small subtle gem: a sprinkling of overhead accents.
+		// A sprinkling of the theme's non-lethal overhead accent decor.
 		if (rng() < 0.22) {
-			decor.push({ x: dx, y: 0, kind: "crystal", size: 9 + rng() * 9 });
+			decor.push({
+				x: dx,
+				y: 0,
+				kind: sample(ceilingKinds),
+				size: 9 + rng() * 9,
+			});
 			continue;
 		}
 		if (inCeilingNoGo(dx)) continue; // never hang a spike over a forced jump arc
 		decor.push({ x: dx, y: 0, kind: "stalactite", size: 12 + rng() * 22 });
 	}
 
-	// --- Floor pass: pebble / mushroom / moss / crystal on solid ground. ---
-	const floorKinds: Decor["kind"][] = [
-		"pebble",
-		"mushroom",
-		"moss",
-		"pebble",
-		"crystal",
-	];
+	// --- Floor pass: theme floor decor on solid ground only. ---
 	for (let x = 60; x < worldWidth - 30; x += 64 + rng() * 24) {
 		// Emit most candidates for a furnished floor (still skip a few for variety).
 		if (rng() > 0.78) continue;
 		const dx = x + rng() * 20;
 		if (!onSolidGround(dx, segs)) continue; // never float over a pit
-		const kind = floorKinds[Math.floor(rng() * floorKinds.length)];
+		const kind = sample(floorKinds);
 		decor.push({ x: dx, y: GROUND_Y, kind, size: 8 + rng() * 12 });
 	}
 
-	// --- Wall pass: background cracks + the occasional embedded crystal, at
+	// --- Wall pass: background cracks + the occasional embedded theme accent, at
 	// varying heights up the cave for depth. ---
 	for (let x = 90; x < worldWidth - 50; x += 110 + rng() * 50) {
 		const dx = x + rng() * 36;
 		const y = 40 + rng() * (GROUND_Y - 80 - 40); // ~40 .. GROUND_Y-80
 		if (rng() < 0.25) {
-			decor.push({ x: dx, y, kind: "crystal", size: 8 + rng() * 7 });
+			decor.push({ x: dx, y, kind: sample(ceilingKinds), size: 8 + rng() * 7 });
 		} else {
 			decor.push({ x: dx, y, kind: "crack", size: 16 + rng() * 20 });
 		}

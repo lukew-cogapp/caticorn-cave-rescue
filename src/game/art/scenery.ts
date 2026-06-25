@@ -29,6 +29,13 @@ export interface BackgroundLayers {
  * spikes UP from y=0 (floor); `crystal` is a small faceted gem centred on the
  * origin; `pebble`/`mushroom`/`moss` stand on the floor (drawn upward from the
  * base); `crack` is a faint jagged line drawn downward from the origin for walls.
+ * Theme-signature kinds: `blossom` — cherry-blossom branch/shrub (floor, draws
+ * upward); `gemcluster` — dense multi-crystal cluster (floor, draws upward);
+ * `icicle` — translucent ice spike (ceiling, drawn downward from y=0);
+ * `gravestone` — weathered headstone with cross scratch (floor, draws upward);
+ * `web` — faint cobweb with radial+arc threads (ceiling, drawn downward from
+ * y=0); `emberrock` — volcanic basalt lump with glowing lava cracks (floor,
+ * draws upward).
  *
  * Gentle deterministic variation (segment counts, facet offsets, tuft layout) is
  * derived from `d.size` via {@link wobble} so repeated decor never looks
@@ -220,6 +227,457 @@ export function drawDecor(d: Decor, accent?: string): Container {
 		// A couple of lit fuzzy highlights.
 		g.ellipse(-s * 0.12, -s * 0.13, s * 0.22, s * 0.1).fill(litG);
 		g.ellipse(s * 0.26, -s * 0.1, s * 0.16, s * 0.08).fill(litG);
+	} else if (d.kind === "blossom") {
+		// Cherry-blossom shrub/branch growing UPWARD from the floor (origin = base).
+		// A brown branch forks into 2-3 sub-branches, each tipped with a petal
+		// cluster in rose/pink tones. Accent blends the branch wood colour.
+		const branchCol = col("#6b3a28");
+		const branchLit = col("#8c5038");
+		const petalDark = 0xd46fa0; // kept unaccented so petals stay pink/rose
+		const petalMid = 0xe88fbc;
+		const petalLit = 0xfbcee6;
+		const budCol = 0xf0a0c0;
+
+		// Trunk: a short tapered post.
+		const trunkH = s * 0.6;
+		const lean = wobble(s, 7, s * 0.08);
+		g.ellipse(0, -s * 0.02, s * 0.08, s * 0.05).fill({
+			color: 0x000000,
+			alpha: 0.15,
+		}); // contact shadow
+		g.roundRect(-s * 0.07, -trunkH, s * 0.14, trunkH, s * 0.04).fill(branchCol);
+		// Lit edge on trunk.
+		g.roundRect(-s * 0.07, -trunkH, s * 0.05, trunkH, s * 0.04).fill({
+			color: branchLit,
+			alpha: 0.7,
+		});
+
+		// Two forking branches radiating from the top of the trunk.
+		const branches: [number, number, number, number][] = [
+			// [startX, startY, endX, endY] all relative to origin
+			[-lean - s * 0.04, -trunkH, -s * 0.38 + lean, -s * 1.1],
+			[lean + s * 0.04, -trunkH, s * 0.34 + lean, -s * 1.05],
+		];
+		for (const [bx0, by0, bx1, by1] of branches) {
+			g.moveTo(bx0, by0)
+				.quadraticCurveTo((bx0 + bx1) * 0.5 + lean, (by0 + by1) * 0.5, bx1, by1)
+				.stroke({ color: branchCol, width: Math.max(1.5, s * 0.06), alpha: 1 });
+		}
+
+		// Petal clusters at each branch tip + a central cluster.
+		const clusters: [number, number, number][] = [
+			[-s * 0.38 + lean, -s * 1.1, s * 0.28],
+			[s * 0.34 + lean, -s * 1.05, s * 0.26],
+			[lean, -s * 0.82, s * 0.22],
+		];
+		for (let ci = 0; ci < clusters.length; ci++) {
+			const [cx, cy, cr] = clusters[ci];
+			// Soft petal mass (dark outer, lighter inner).
+			g.ellipse(cx, cy, cr * 1.1, cr * 0.72).fill({
+				color: petalDark,
+				alpha: 0.88,
+			});
+			g.ellipse(cx, cy - cr * 0.12, cr * 0.72, cr * 0.5).fill({
+				color: petalMid,
+				alpha: 0.9,
+			});
+			g.ellipse(cx - cr * 0.18, cy - cr * 0.22, cr * 0.36, cr * 0.28).fill({
+				color: petalLit,
+				alpha: 0.8,
+			});
+			// A few tiny petal dots scattered around the cluster.
+			const dotXs = [-cr * 0.5, cr * 0.42, -cr * 0.1, cr * 0.22];
+			const dotYs = [-cr * 0.38, -cr * 0.3, cr * 0.28, cr * 0.22];
+			for (let di = 0; di < 4; di++) {
+				const dvar = wobble(s + ci, di * 11 + 3, cr * 0.06);
+				g.circle(cx + dotXs[di] + dvar, cy + dotYs[di], cr * 0.09).fill({
+					color: petalLit,
+					alpha: 0.75,
+				});
+			}
+			// Tiny bud dot near each cluster.
+			g.circle(
+				cx + wobble(s, ci * 5 + 1, cr * 0.3),
+				cy + wobble(s, ci * 5 + 2, cr * 0.25),
+				cr * 0.07,
+			).fill({ color: budCol, alpha: 0.85 });
+		}
+	} else if (d.kind === "gemcluster") {
+		// Dense cluster of 3-5 faceted crystals of varying heights, growing UPWARD
+		// from the floor (origin = base). Violet/cyan gem palette, structural fills
+		// blended toward accent. Lit face / dark face / glint per crystal.
+		const count = 3 + (Math.floor(s) % 3); // 3-5 gems
+		const baseGem = accent ? tintStr("#6a3fcf", accent, 0.45) : "#6a3fcf";
+		const darkFace = mixHex(baseGem, "#0a0520", 0.55);
+		const litFace = mixHex(baseGem, "#d4f8ff", 0.62);
+		const midFace = mixHex(baseGem, "#c0a0ff", 0.4);
+
+		// Soft glow halo at the base.
+		g.ellipse(0, -s * 0.08, s * 0.7, s * 0.22).fill({
+			color: 0x9060ff,
+			alpha: 0.14,
+		});
+		// Contact shadow.
+		g.ellipse(0, -s * 0.02, s * 0.62, s * 0.09).fill({
+			color: 0x000000,
+			alpha: 0.18,
+		});
+
+		// Crystal positions/sizes — staggered offsets keyed on index.
+		const xOffsets = [-s * 0.3, s * 0.28, s * 0.02, -s * 0.52, s * 0.5];
+		const heights = [s * 1.0, s * 0.78, s * 1.2, s * 0.62, s * 0.86];
+		const widths = [s * 0.2, s * 0.18, s * 0.22, s * 0.15, s * 0.17];
+
+		for (let i = 0; i < count; i++) {
+			const cx = xOffsets[i] + wobble(s, i * 13 + 1, s * 0.06);
+			const ch = heights[i] + wobble(s, i * 13 + 2, s * 0.1);
+			const cw = widths[i];
+			const tipX = cx + wobble(s, i * 13 + 3, cw * 0.4);
+			// Elongated hexagon silhouette (full fill = mid).
+			g.poly([
+				tipX,
+				-ch,
+				cx + cw,
+				-ch * 0.32,
+				cx + cw * 0.6,
+				0,
+				cx - cw * 0.6,
+				0,
+				cx - cw,
+				-ch * 0.32,
+			]).fill({ color: midFace, alpha: 1 });
+			// Dark right face.
+			g.poly([
+				tipX,
+				-ch,
+				cx + cw,
+				-ch * 0.32,
+				cx + cw * 0.6,
+				0,
+				tipX,
+				-ch * 0.22,
+			]).fill({ color: darkFace, alpha: 0.9 });
+			// Lit left sliver.
+			g.poly([
+				tipX,
+				-ch,
+				tipX,
+				-ch * 0.22,
+				cx - cw * 0.6,
+				0,
+				cx - cw,
+				-ch * 0.32,
+			]).fill({ color: litFace, alpha: 0.75 });
+			// Bright tip glint.
+			g.circle(tipX, -ch * 0.97, Math.max(1, s * 0.055)).fill({
+				color: 0xffffff,
+				alpha: 0.88,
+			});
+		}
+	} else if (d.kind === "icicle") {
+		// Hanging ice spike drawn DOWNWARD from y=0 (ceiling placement).
+		// Pale-blue translucent taper, glassy highlight, sharp tip glint.
+		// Visually lighter and glassier than the menacing grey stalactite.
+		const iceLen = s * 2.0;
+		const iceW = s * 0.32;
+		const tipX = wobble(s, 11, s * 0.1); // gentle lean
+		const tipY = iceLen;
+
+		// Soft frost halo at the ceiling attachment.
+		g.ellipse(0, 0, iceW * 2.0, s * 0.18).fill({ color: 0xb8f0ff, alpha: 0.2 });
+
+		// Ice body — main cone silhouette in pale icy blue.
+		g.poly([
+			-iceW,
+			0,
+			iceW,
+			0,
+			iceW * 0.55,
+			tipY * 0.55,
+			tipX + iceW * 0.12,
+			tipY * 0.9,
+			tipX,
+			tipY,
+			tipX - iceW * 0.12,
+			tipY * 0.9,
+			-iceW * 0.55,
+			tipY * 0.55,
+		]).fill({ color: 0x9de8ff, alpha: 0.68 });
+
+		// Lit glass edge — a slim bright sliver down the left.
+		g.poly([
+			-iceW,
+			0,
+			-iceW * 0.42,
+			0,
+			tipX - iceW * 0.22,
+			tipY * 0.82,
+			tipX,
+			tipY,
+			-iceW * 0.55,
+			tipY * 0.55,
+		]).fill({ color: 0xe8faff, alpha: 0.65 });
+
+		// Interior dark core seam (right side depth).
+		g.poly([
+			iceW * 0.28,
+			0,
+			iceW,
+			0,
+			iceW * 0.55,
+			tipY * 0.55,
+			tipX + iceW * 0.12,
+			tipY * 0.9,
+			tipX,
+			tipY,
+		]).fill({ color: 0x4ab8d8, alpha: 0.45 });
+
+		// Frosty cross-band highlights.
+		for (let band = 1; band <= 2; band++) {
+			const t = band / 3;
+			const bw = iceW * (1 - t) * 0.9;
+			const by = tipY * t;
+			const bcx = tipX * t;
+			g.moveTo(bcx - bw, by)
+				.lineTo(bcx + bw, by)
+				.stroke({
+					color: 0xd0f4ff,
+					width: Math.max(0.8, s * 0.05),
+					alpha: 0.4,
+				});
+		}
+
+		// Sharp tip glint.
+		g.circle(tipX, tipY * 0.97, Math.max(1, s * 0.07)).fill({
+			color: 0xffffff,
+			alpha: 0.95,
+		});
+	} else if (d.kind === "gravestone") {
+		// Weathered headstone standing UPWARD from the floor (origin = base).
+		// Rounded-top slab, shaded right side, faint cross scratch, grass at base.
+		const stoneH = s * 1.1;
+		const stoneW = s * 0.64;
+		const stoneBody = col("#6a6878");
+		const stoneLit = col("#8a8898");
+		const stoneDark = col("#4a4858");
+		const stoneShadow = col("#38363f");
+		const grassCol = col("#3e6638");
+		const grassLit = col("#56834a");
+		const scratchCol = 0xd0ccd8;
+
+		// Contact shadow.
+		g.ellipse(0, -s * 0.02, stoneW * 0.74, s * 0.08).fill({
+			color: 0x000000,
+			alpha: 0.18,
+		});
+
+		// Grass tuft at the base (drawn first so stone sits on top).
+		for (const tx of [
+			-stoneW * 0.28,
+			0,
+			stoneW * 0.28,
+			-stoneW * 0.46,
+			stoneW * 0.46,
+		]) {
+			const gh = s * 0.12 + Math.abs(wobble(s, tx * 7 + 1, s * 0.04));
+			g.poly([
+				tx - s * 0.05,
+				0,
+				tx + s * 0.05,
+				0,
+				tx + wobble(s, tx * 3 + 2, s * 0.04),
+				-gh,
+			]).fill(grassCol);
+		}
+		// Lit grass highlights.
+		g.ellipse(-stoneW * 0.18, -s * 0.07, stoneW * 0.18, s * 0.06).fill(
+			grassLit,
+		);
+		g.ellipse(stoneW * 0.22, -s * 0.06, stoneW * 0.14, s * 0.05).fill(grassLit);
+
+		// Slab body — rect bottom half, rounded top.
+		const halfW = stoneW * 0.5;
+		const roundTop = stoneH * 0.38; // height of the rounded cap portion
+		g.roundRect(-halfW, -stoneH, stoneW, stoneH, stoneW * 0.46).fill(stoneDark); // base silhouette
+		g.roundRect(-halfW, -stoneH, stoneW, stoneH, stoneW * 0.46).stroke({
+			color: stoneShadow,
+			width: 1.2,
+			alpha: 0.5,
+		});
+		// Main lit face (slightly inset).
+		g.roundRect(
+			-halfW + s * 0.04,
+			-stoneH + s * 0.04,
+			stoneW - s * 0.04,
+			stoneH - s * 0.04,
+			stoneW * 0.44,
+		).fill(stoneBody);
+		// Lit top-left highlight.
+		g.ellipse(
+			-halfW * 0.5,
+			-stoneH + roundTop * 0.45,
+			halfW * 0.52,
+			roundTop * 0.34,
+		).fill({ color: stoneLit, alpha: 0.55 });
+		// Right-side shade for depth.
+		g.roundRect(
+			halfW * 0.38,
+			-stoneH,
+			halfW * 0.58,
+			stoneH,
+			stoneW * 0.44,
+		).fill({ color: stoneDark, alpha: 0.45 });
+
+		// Faint cross scratch near the top.
+		const crossCY = -stoneH + roundTop * 0.9;
+		const crossArmH = stoneH * 0.18;
+		const crossArmW = stoneW * 0.26;
+		const scratchW = Math.max(0.8, s * 0.05);
+		// Vertical bar.
+		g.moveTo(0, crossCY - crossArmH)
+			.lineTo(0, crossCY + crossArmH * 0.7)
+			.stroke({ color: scratchCol, width: scratchW, alpha: 0.28 });
+		// Horizontal bar.
+		g.moveTo(-crossArmW, crossCY)
+			.lineTo(crossArmW, crossCY)
+			.stroke({ color: scratchCol, width: scratchW, alpha: 0.28 });
+	} else if (d.kind === "web") {
+		// Faint cobweb hanging from the ceiling (y=0), drawn DOWNWARD.
+		// Radial threads + 2-3 concentric arc threads, pale grey at low alpha,
+		// with an optional tiny spider dot. Purely decorative, very subtle.
+		const webR = s * 0.9; // half-span of the web
+		const webDepth = s * 0.75; // how far it droops down
+		const threadCol = 0xd0cce0;
+		const threadW = Math.max(0.6, s * 0.04);
+
+		// Number of radial threads: 5-7 based on size.
+		const radials = 5 + (Math.floor(s) % 3);
+		const threadXs: number[] = [];
+		const threadYs: number[] = [];
+		for (let i = 0; i < radials; i++) {
+			// Spread radials across the top edge and fan down.
+			const t = i / (radials - 1); // 0..1
+			const tx = lerp(-webR, webR, t);
+			// Fan tip: outer threads go less deep, centre thread goes deepest.
+			const depth = webDepth * (1 - Math.abs(t - 0.5) * 1.1);
+			const ty = Math.max(s * 0.08, depth);
+			threadXs.push(tx);
+			threadYs.push(ty);
+			g.moveTo(tx, 0)
+				.lineTo(tx, ty)
+				.stroke({ color: threadCol, width: threadW, alpha: 0.28 });
+		}
+
+		// 2-3 concentric horizontal arc threads linking the radials.
+		const arcCount = 2 + (Math.floor(s) % 2);
+		for (let ai = 1; ai <= arcCount; ai++) {
+			const arcT = ai / (arcCount + 1);
+			// Catenary-style arc: interpolate along each radial thread.
+			const arcPoints: number[] = [];
+			for (let i = 0; i < radials; i++) {
+				arcPoints.push(threadXs[i], threadYs[i] * arcT);
+			}
+			// Draw arcs as a series of line segments between adjacent radials.
+			for (let i = 0; i < radials - 1; i++) {
+				const ax0 = arcPoints[i * 2];
+				const ay0 = arcPoints[i * 2 + 1];
+				const ax1 = arcPoints[(i + 1) * 2];
+				const ay1 = arcPoints[(i + 1) * 2 + 1];
+				const midY = Math.max(ay0, ay1) + webDepth * 0.04;
+				g.moveTo(ax0, ay0)
+					.quadraticCurveTo((ax0 + ax1) * 0.5, midY, ax1, ay1)
+					.stroke({ color: threadCol, width: threadW * 0.75, alpha: 0.22 });
+			}
+		}
+
+		// Tiny spider dot, hanging slightly off-centre at the web centre.
+		const spiderX = wobble(s, 19, webR * 0.18);
+		const spiderY = webDepth * 0.42 + wobble(s, 23, webDepth * 0.08);
+		g.circle(spiderX, spiderY, Math.max(1.5, s * 0.07)).fill({
+			color: 0x403850,
+			alpha: 0.65,
+		});
+	} else if (d.kind === "emberrock") {
+		// Volcanic basalt lump with glowing lava cracks, standing UPWARD from floor
+		// (origin = base). Dark rock body + bright orange/yellow crack network +
+		// warm glow halo. Structural rock colour blends toward accent.
+		const rockBody = col("#2a1e1a");
+		const rockMid = col("#3e2e28");
+		const rockLit = col("#4e3e36");
+		const lavaOrange = 0xff6020;
+		const lavaYellow = 0xffc040;
+		const glowCol = 0xff7030;
+
+		// Warm ember glow halo at the base (drawn first, underneath).
+		g.ellipse(0, -s * 0.28, s * 0.72, s * 0.38).fill({
+			color: glowCol,
+			alpha: 0.18,
+		});
+		g.ellipse(0, -s * 0.2, s * 0.44, s * 0.22).fill({
+			color: lavaYellow,
+			alpha: 0.12,
+		});
+
+		// Contact shadow.
+		g.ellipse(0, -s * 0.02, s * 0.58, s * 0.09).fill({
+			color: 0x000000,
+			alpha: 0.22,
+		});
+
+		// Rock body: an irregular lumpy mass via overlapping ellipses.
+		g.ellipse(0, -s * 0.36, s * 0.58, s * 0.42).fill(rockBody);
+		g.ellipse(-s * 0.14, -s * 0.28, s * 0.36, s * 0.28).fill(rockMid);
+		g.ellipse(s * 0.18, -s * 0.32, s * 0.3, s * 0.26).fill(rockMid);
+		// Small secondary lump on top-left.
+		g.ellipse(
+			-s * 0.22 + wobble(s, 5, s * 0.06),
+			-s * 0.6 + wobble(s, 6, s * 0.06),
+			s * 0.26,
+			s * 0.2,
+		).fill(rockBody);
+		// Lit highlight on top edge.
+		g.ellipse(-s * 0.12, -s * 0.62, s * 0.2, s * 0.1).fill({
+			color: rockLit,
+			alpha: 0.7,
+		});
+
+		// Lava crack network — 3 main cracks + thin offshoots, all orange/yellow.
+		const crackW = Math.max(1, s * 0.08);
+		// Main vertical crack.
+		g.moveTo(wobble(s, 1, s * 0.06), -s * 0.06)
+			.quadraticCurveTo(
+				wobble(s, 2, s * 0.1),
+				-s * 0.38,
+				wobble(s, 3, s * 0.08),
+				-s * 0.62,
+			)
+			.stroke({ color: lavaOrange, width: crackW, alpha: 0.9 });
+		// Bright inner glow of the crack.
+		g.moveTo(wobble(s, 1, s * 0.06), -s * 0.06)
+			.quadraticCurveTo(
+				wobble(s, 2, s * 0.1),
+				-s * 0.38,
+				wobble(s, 3, s * 0.08),
+				-s * 0.62,
+			)
+			.stroke({ color: lavaYellow, width: crackW * 0.45, alpha: 0.85 });
+		// Left branch crack.
+		g.moveTo(wobble(s, 2, s * 0.1), -s * 0.38)
+			.lineTo(-s * 0.28 + wobble(s, 4, s * 0.06), -s * 0.24)
+			.stroke({ color: lavaOrange, width: crackW * 0.7, alpha: 0.8 });
+		// Right branch crack.
+		g.moveTo(wobble(s, 2, s * 0.1), -s * 0.38)
+			.lineTo(s * 0.26 + wobble(s, 5, s * 0.06), -s * 0.5)
+			.stroke({ color: lavaOrange, width: crackW * 0.65, alpha: 0.75 });
+		// Glowing lava pool dot at the main crack base.
+		g.circle(wobble(s, 1, s * 0.06), -s * 0.1, s * 0.09).fill({
+			color: lavaYellow,
+			alpha: 0.92,
+		});
+		g.circle(wobble(s, 1, s * 0.06), -s * 0.1, s * 0.16).fill({
+			color: lavaOrange,
+			alpha: 0.35,
+		});
 	} else {
 		// Fine hairline wall fracture: a faint main crack with thin branches.
 		const w = Math.max(0.8, s * 0.04);

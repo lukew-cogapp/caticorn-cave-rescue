@@ -35,12 +35,37 @@ export function drawFirefly(): Container {
  *   atmosphere — subtle drifting dust or spore.
  * - `"sparkle"`: a crisp 4-point cross-glint (thinner/brighter than "spark")
  *   with a faint coloured halo, for exit-beckon twinkles.
+ * - `"petal"`: a soft pink cherry-blossom petal — a small rounded teardrop
+ *   with a faint lighter highlight, ~4-5px. Caller rotates for variety.
+ * - `"gemsparkle"`: a gem-coloured violet/cyan 4-point glint with a faint
+ *   halo, ~4px. Distinct from the white "sparkle".
+ * - `"snow"`: a soft white snow speck — a bright core with a pale halo and
+ *   six faint spoke-lines, ~3-4px. Gentle and icy.
+ * - `"fog"`: a drifting fog wisp — several overlapping very-low-alpha
+ *   pale-grey circles, ~8-10px wide. Reads as thin mist.
+ * - `"spore"`: a glowing mushroom spore — a soft green-yellow dot with a
+ *   faint halo, ~3px. Like a smaller, greener firefly.
+ * - `"ember"`: a glowing ember — a bright orange/yellow hot speck with a
+ *   warm halo fading to red at the edge, ~3-4px.
  *
  * @param kind - Which particle to draw.
  * @returns A Pixi {@link Container} drawn centred on its origin.
  */
 export function drawParticle(
-	kind: "spark" | "note" | "puff" | "dust" | "star" | "mote" | "sparkle",
+	kind:
+		| "spark"
+		| "note"
+		| "puff"
+		| "dust"
+		| "star"
+		| "mote"
+		| "sparkle"
+		| "petal"
+		| "gemsparkle"
+		| "snow"
+		| "fog"
+		| "spore"
+		| "ember",
 ): Container {
 	const c = new Container();
 	const g = new Graphics();
@@ -85,6 +110,107 @@ export function drawParticle(
 		// A very faint, tiny pale circle — a drifting dust spore.
 		g.circle(0, 0, 2.2).fill({ color: 0xf0ecd8, alpha: 0.18 });
 		g.circle(0, 0, 1.2).fill({ color: 0xfaf8f0, alpha: 0.28 });
+	} else if (kind === "petal") {
+		// A soft cherry-blossom petal: a rounded pink teardrop with a light
+		// highlight. Drawn pointing "up" — caller rotates for variety.
+		// Outer petal body — soft rose pink.
+		g.ellipse(0, 0.5, 2.2, 3.2).fill({ color: 0xf9b8cc, alpha: 0.92 });
+		// Slightly lighter inner highlight off-centre.
+		g.ellipse(-0.5, -0.3, 1.1, 1.8).fill({ color: 0xfde0ec, alpha: 0.7 });
+		// Faint tip notch (darker crease at the bottom of the petal).
+		g.circle(0, 3, 0.7).fill({ color: 0xe88aad, alpha: 0.55 });
+	} else if (kind === "gemsparkle") {
+		// A gem-coloured crystal twinkle: violet/cyan halo + 4-point glint.
+		// Outer violet halo.
+		g.circle(0, 0, 5).fill({ color: 0xb44fff, alpha: 0.18 });
+		// Mid cyan ring.
+		g.circle(0, 0, 3).fill({ color: 0x5af0ff, alpha: 0.22 });
+		// Vertical glint arm.
+		g.poly([0, -4.5, 0.6, -0.6, 0, 0, -0.6, -0.6]).fill({
+			color: 0xd8aaff,
+			alpha: 0.95,
+		});
+		g.poly([0, 4.5, 0.6, 0.6, 0, 0, -0.6, 0.6]).fill({
+			color: 0xd8aaff,
+			alpha: 0.95,
+		});
+		// Horizontal glint arm.
+		g.poly([-4.5, 0, -0.6, 0.6, 0, 0, -0.6, -0.6]).fill({
+			color: 0x88eeff,
+			alpha: 0.95,
+		});
+		g.poly([4.5, 0, 0.6, 0.6, 0, 0, 0.6, -0.6]).fill({
+			color: 0x88eeff,
+			alpha: 0.95,
+		});
+		// Bright white centre.
+		g.circle(0, 0, 0.9).fill("#ffffff");
+	} else if (kind === "snow") {
+		// A gentle snowflake/snow speck: soft white core, pale halo, six
+		// faint spokes for a delicate icy look.
+		// Outer faint halo.
+		g.circle(0, 0, 4).fill({ color: 0xe8f4ff, alpha: 0.2 });
+		// Mid glow.
+		g.circle(0, 0, 2.2).fill({ color: 0xf0f8ff, alpha: 0.55 });
+		// Six spoke lines — thin rectangles at 60° steps (0, 60, 120°).
+		// Vertical spoke.
+		g.rect(-0.4, -3.4, 0.8, 6.8).fill({ color: 0xddeeff, alpha: 0.55 });
+		// 60° spoke (approx 0.866 / 0.5).
+		g.poly([0, -3.4, 0.5, -3.0, 0, 0, -0.5, -3.0]).fill({
+			color: 0xddeeff,
+			alpha: 0.55,
+		});
+		g.poly([0, 3.4, 0.5, 3.0, 0, 0, -0.5, 3.0]).fill({
+			color: 0xddeeff,
+			alpha: 0.55,
+		});
+		// 120° spoke.
+		g.poly([-3.0, -1.7, -2.5, -2.2, 0, 0, -2.5, -1.2]).fill({
+			color: 0xddeeff,
+			alpha: 0.55,
+		});
+		g.poly([3.0, 1.7, 2.5, 2.2, 0, 0, 2.5, 1.2]).fill({
+			color: 0xddeeff,
+			alpha: 0.55,
+		});
+		g.poly([-3.0, 1.7, -2.5, 2.2, 0, 0, -2.5, 1.2]).fill({
+			color: 0xddeeff,
+			alpha: 0.55,
+		});
+		g.poly([3.0, -1.7, 2.5, -2.2, 0, 0, 2.5, -1.2]).fill({
+			color: 0xddeeff,
+			alpha: 0.55,
+		});
+		// Bright white centre dot.
+		g.circle(0, 0, 1).fill("#ffffff");
+	} else if (kind === "fog") {
+		// A drifting fog wisp: several overlapping very-low-alpha pale-grey
+		// circles that together read as thin drifting mist. ~8-10px wide.
+		g.circle(-3, 0, 5).fill({ color: 0xd8dce0, alpha: 0.13 });
+		g.circle(2.5, -1, 4.5).fill({ color: 0xe0e4e8, alpha: 0.14 });
+		g.circle(-0.5, 1.5, 4).fill({ color: 0xcdd1d5, alpha: 0.12 });
+		g.circle(3.5, 1, 3.5).fill({ color: 0xd8dce0, alpha: 0.1 });
+		g.circle(-2, -1, 3).fill({ color: 0xe4e8ec, alpha: 0.1 });
+	} else if (kind === "spore") {
+		// A glowing mushroom spore: a soft green-yellow dot with a faint halo.
+		// Like a small, greener firefly. ~3px.
+		// Outer diffuse halo.
+		g.circle(0, 0, 3.5).fill({ color: 0x8fdd44, alpha: 0.2 });
+		// Mid glow.
+		g.circle(0, 0, 2).fill({ color: 0xc2f060, alpha: 0.5 });
+		// Bright yellow-green core.
+		g.circle(0, 0, 1).fill({ color: 0xe8ff90, alpha: 0.95 });
+	} else if (kind === "ember") {
+		// A glowing ember: bright orange/yellow centre with a warm halo fading
+		// to red at the edge. ~3-4px.
+		// Outer warm red halo.
+		g.circle(0, 0, 4).fill({ color: 0xcc2200, alpha: 0.22 });
+		// Mid orange glow.
+		g.circle(0, 0, 2.5).fill({ color: 0xff6600, alpha: 0.45 });
+		// Bright yellow-orange inner.
+		g.circle(0, 0, 1.4).fill({ color: 0xffcc44, alpha: 0.9 });
+		// Hot white core.
+		g.circle(0, 0, 0.7).fill({ color: 0xfff8e0, alpha: 1 });
 	} else {
 		// "sparkle": crisp 4-point cross-glint, thinner than "spark", with a faint
 		// coloured halo for the exit-beckon effect.

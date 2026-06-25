@@ -7,6 +7,8 @@
  * `private static readonly` across the game files lives here.
  */
 
+import type { AmbientKind } from "./level/themes";
+
 // --- Player movement ---
 
 /** Horizontal acceleration when a direction is held (px/sec^2). */
@@ -189,6 +191,46 @@ export const MOTE_RISE_SPEED = 9;
 export const MOTE_SWAY = 14;
 /** Peak alpha of an ambient mote (very faint atmosphere). */
 export const MOTE_ALPHA = 0.5;
+
+// --- Themed ambient drifters ---
+
+/**
+ * Per-{@link AmbientKind} motion profile for the ambient drifter layer (see
+ * systems/Motes.ts). `dir` is the vertical travel sense (+1 falls down, -1
+ * rises, 0 stays put and only twinkles); `speed` is the vertical travel speed
+ * (px/sec, magnitude); `sway` is the horizontal sine amplitude (px); `alpha` is
+ * peak opacity. All deterministic — the system advances phase by the clamped dt.
+ *
+ * Tuned so each cave reads distinctly: petals + snow fall gently with sway,
+ * embers rise, fog drifts slow with wide sideways sway, gemsparkle + spore
+ * mostly twinkle in place with a touch of drift.
+ */
+export interface AmbientProfile {
+	/** Vertical travel sense: +1 falls down, -1 rises, 0 stays put + twinkles. */
+	dir: 1 | -1 | 0;
+	/** Vertical travel speed (px/sec, magnitude). */
+	speed: number;
+	/** Horizontal sine sway amplitude (px). */
+	sway: number;
+	/** Peak opacity. */
+	alpha: number;
+}
+
+export const AMBIENT_PROFILES: Record<AmbientKind, AmbientProfile> = {
+	petal: { dir: 1, speed: 26, sway: 22, alpha: 0.85 },
+	snow: { dir: 1, speed: 20, sway: 16, alpha: 0.8 },
+	ember: { dir: -1, speed: 30, sway: 14, alpha: 0.85 },
+	fog: { dir: 1, speed: 6, sway: 40, alpha: 0.6 },
+	gemsparkle: { dir: 0, speed: 8, sway: 6, alpha: 0.7 },
+	spore: { dir: -1, speed: 10, sway: 18, alpha: 0.7 },
+};
+
+/** Number of themed ambient drifters kept alive in the world per level. */
+export const AMBIENT_COUNT = 14;
+/** Vertical span (px) a drifter travels before wrapping back to its start. */
+export const AMBIENT_TRAVEL_SPAN = 320;
+/** Twinkle (alpha-pulse) angular speed for in-place ambient kinds (rad/sec). */
+export const AMBIENT_TWINKLE_SPEED = 2.4;
 
 // --- Exit beckon ---
 

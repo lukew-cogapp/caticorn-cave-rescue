@@ -1,4 +1,5 @@
 import type { Container } from "pixi.js";
+import type { AmbientKind } from "./level/themes";
 
 /** Fixed internal render resolution; world logic uses these coords. */
 export const GAME_WIDTH = 800;
@@ -56,7 +57,8 @@ export interface MonsterSpec extends Vec2 {
 }
 
 /** A decorative cave element, purely visual. Floor/wall kinds sit on ground or
- * cling to walls; ceiling kinds hang. */
+ * cling to walls; ceiling kinds hang. The later kinds are theme-signature decor
+ * (e.g. blossom branches, icicles, gem clusters) used by the bespoke caves. */
 export type DecorKind =
 	| "stalactite"
 	| "stalagmite"
@@ -64,7 +66,13 @@ export type DecorKind =
 	| "pebble"
 	| "mushroom"
 	| "moss"
-	| "crack";
+	| "crack"
+	| "blossom"
+	| "gemcluster"
+	| "icicle"
+	| "gravestone"
+	| "web"
+	| "emberrock";
 
 /** Decorative cave element, purely visual. */
 export interface Decor extends Vec2 {
@@ -100,6 +108,12 @@ export interface Level {
 	 * run seed by {@link buildLevels}.
 	 */
 	themeAccent: string;
+	/**
+	 * Ambient drifting particle for this cave (petal/snow/ember/etc.), spawned by
+	 * the scene and animated each frame. Derived from the theme by
+	 * {@link buildLevels}; gives each cave a signature atmospheric mood.
+	 */
+	ambient: AmbientKind;
 	/** Player horizontal move speed, pixels/sec. */
 	moveSpeed: number;
 	spawn: Vec2;

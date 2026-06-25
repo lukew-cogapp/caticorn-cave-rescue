@@ -11,7 +11,7 @@ import {
 	drawTrampoline,
 	type PlayerVariant,
 } from "../art";
-import { MOTE_COUNT } from "../const";
+import { AMBIENT_COUNT } from "../const";
 import { Caticorn } from "../entities/Caticorn";
 import { Exit } from "../entities/Exit";
 import { createMonster, type Monster } from "../entities/Monster";
@@ -144,8 +144,8 @@ export function loadScene(
 	fireflies.spawn(level.worldWidth, 14);
 	world.addChild(fireflies.view);
 
-	// Ambient drifting cave motes (atmospheric dust), same depth as fireflies.
-	motes.spawn(level.worldWidth, MOTE_COUNT);
+	// Themed ambient drifters (petals/snow/embers/etc.), same depth as fireflies.
+	motes.spawn(level.worldWidth, AMBIENT_COUNT, level.ambient);
 	world.addChild(motes.view);
 
 	// Decor placement by kind: stalactites hang from the ceiling, wall cracks
