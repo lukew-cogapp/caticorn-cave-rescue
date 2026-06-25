@@ -5,19 +5,15 @@ import {
 	drawCaticorn,
 	drawShackle,
 } from "../art";
+import {
+	BINDING_FADE,
+	CATICORN_BOB_AMPLITUDE,
+	CATICORN_BOB_SPEED,
+	CATICORN_SCALE,
+	RESCUE_FLOAT_SPEED,
+} from "../const";
 import type { CaticornSpec, WorldContext } from "../types";
 import { Entity } from "./Entity";
-
-/** Idle bob amplitude in pixels. */
-const BOB_AMPLITUDE = 4;
-/** Bob angular speed in radians/sec. */
-const BOB_SPEED = 2.5;
-/** Upward drift speed once rescued, in px/sec (cheerful escape). */
-const RESCUE_FLOAT_SPEED = 70;
-/** Captive caticorns are drawn a bit smaller than the hero. */
-const CATICORN_SCALE = 0.8;
-/** Seconds a broken binding (cage/shackle) takes to fade out. */
-const BINDING_FADE = 0.5;
 
 /** How a caticorn is held. */
 export type Containment = "shackle" | "cage";
@@ -90,12 +86,12 @@ export class Caticorn extends Entity {
 	}
 
 	update(ctx: WorldContext): void {
-		this.phase += ctx.dt * BOB_SPEED;
+		this.phase += ctx.dt * CATICORN_BOB_SPEED;
 		if (this.rescued) {
 			// Gently drift the baseline upward while continuing to bob.
 			this.baseY -= RESCUE_FLOAT_SPEED * ctx.dt;
 		}
-		this.pos.y = this.baseY + Math.sin(this.phase) * BOB_AMPLITUDE;
+		this.pos.y = this.baseY + Math.sin(this.phase) * CATICORN_BOB_AMPLITUDE;
 
 		// Fade out a broken binding, then drop it.
 		if (this.binding && this.bindingFade > 0) {

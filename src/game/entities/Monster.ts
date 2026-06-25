@@ -1,5 +1,11 @@
 import type { Container } from "pixi.js";
 import { drawMonster } from "../art";
+import {
+	BAT_BOB_AMPLITUDE,
+	BAT_BOB_SPEED,
+	LURKER_DROP_INTERVAL,
+	LURKER_SWAY,
+} from "../const";
 import type { MonsterSpec, Platform, WorldContext } from "../types";
 import { Entity } from "./Entity";
 
@@ -126,11 +132,6 @@ export class Bat extends Monster {
 	protected readonly halfWidth = 18;
 	protected readonly height = 22;
 
-	/** Vertical bob amplitude in pixels. */
-	private static readonly BOB_AMPLITUDE = 22;
-	/** Bob angular speed in radians/sec. */
-	private static readonly BOB_SPEED = 3;
-
 	/** Baseline y the bob oscillates around. */
 	private readonly baseY: number;
 	/** Accumulated phase, advanced by dt each frame. */
@@ -147,8 +148,8 @@ export class Bat extends Monster {
 			return;
 		}
 		this.patrol(ctx.dt);
-		this.phase += ctx.dt * Bat.BOB_SPEED;
-		this.pos.y = this.baseY + Math.sin(this.phase) * Bat.BOB_AMPLITUDE;
+		this.phase += ctx.dt * BAT_BOB_SPEED;
+		this.pos.y = this.baseY + Math.sin(this.phase) * BAT_BOB_AMPLITUDE;
 		this.syncView();
 	}
 }
@@ -163,12 +164,7 @@ export class Lurker extends Monster {
 	protected readonly halfWidth = 15;
 	protected readonly height = 26;
 
-	/** Seconds between poop drops. */
-	private static readonly DROP_INTERVAL = 3.2;
-	/** Gentle horizontal sway amplitude in px. */
-	private static readonly SWAY = 10;
-
-	private dropTimer = Lurker.DROP_INTERVAL;
+	private dropTimer = LURKER_DROP_INTERVAL;
 	private swayPhase = 0;
 	/** World x of a pending poop drop, or null when nothing to drop this frame. */
 	private pendingDrop: number | null = null;
@@ -192,14 +188,14 @@ export class Lurker extends Monster {
 			this.view.scale.x = targetX < this.pos.x ? -1 : 1;
 		}
 		this.swayPhase += ctx.dt;
-		this.pos.x += Math.cos(this.swayPhase * 1.5) * Lurker.SWAY * ctx.dt;
+		this.pos.x += Math.cos(this.swayPhase * 1.5) * LURKER_SWAY * ctx.dt;
 		// Keep within the world bounds.
 		this.pos.x = Math.max(40, Math.min(ctx.level.worldWidth - 40, this.pos.x));
 
 		// Drop poop on a fixed cadence.
 		this.dropTimer -= ctx.dt;
 		if (this.dropTimer <= 0) {
-			this.dropTimer = Lurker.DROP_INTERVAL;
+			this.dropTimer = LURKER_DROP_INTERVAL;
 			this.pendingDrop = this.pos.x;
 		}
 		this.syncView();

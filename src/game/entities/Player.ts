@@ -1,6 +1,20 @@
 import { Graphics } from "pixi.js";
 import { drawPlayer, type PlayerVariant } from "../art";
 import {
+	ACCEL,
+	APEX_GRAVITY,
+	APEX_THRESHOLD,
+	COYOTE_TIME,
+	FALL_GRAVITY,
+	FRICTION,
+	IDLE_BREATH_AMPLITUDE,
+	IDLE_BREATH_SPEED,
+	IDLE_SPEED_THRESHOLD,
+	JUMP_BUFFER,
+	JUMP_CUT,
+	MAX_JUMPS,
+} from "../const";
+import {
 	GAME_HEIGHT,
 	GRAVITY,
 	JUMP_VELOCITY,
@@ -10,30 +24,6 @@ import {
 	type WorldContext,
 } from "../types";
 import { Entity } from "./Entity";
-
-/** Horizontal acceleration when a direction is held (px/sec^2). */
-const ACCEL = 2600;
-/** Horizontal deceleration applied as friction when no input (px/sec^2). */
-const FRICTION = 2200;
-
-/** Grace window after leaving a ledge where a ground jump still fires (s). */
-const COYOTE_TIME = 0.1;
-/** Window before landing within which a jump press is remembered + fired (s). */
-const JUMP_BUFFER = 0.1;
-/** Upward-velocity multiplier when the jump key is released early (jump-cut). */
-const JUMP_CUT = 0.45;
-/** Below this |vy|, gravity is softened for a floaty apex hang. */
-const APEX_THRESHOLD = 90;
-/** Gravity multiplier near the jump apex (hang) and while falling (snappier). */
-const APEX_GRAVITY = 0.6;
-const FALL_GRAVITY = 1.45;
-
-/** |vel.x| under which the player counts as standing still (for idle breathing). */
-const IDLE_SPEED_THRESHOLD = 6;
-/** Idle breathing angular speed (radians/sec) — slow, calm bob. */
-const IDLE_BREATH_SPEED = 3.2;
-/** Idle breathing amplitude as a fraction of scale.y (very subtle). */
-const IDLE_BREATH_AMPLITUDE = 0.03;
 
 /**
  * The player character: a caticorn rescuer with skid-eased horizontal movement,
@@ -56,8 +46,6 @@ export class Player extends Entity {
 	private jumpsUsed = 0;
 	/** True while the jump key was held last frame (for edge detection). */
 	private jumpHeld = false;
-	/** Ground jump + one air jump. */
-	private static readonly MAX_JUMPS = 2;
 
 	/** Current squash/stretch: 0 = neutral, >0 = stretch tall, <0 = squash flat. */
 	private squash = 0;
@@ -137,8 +125,7 @@ export class Player extends Entity {
 			// jump #1, leaving the double jump intact, exactly as a ground jump
 			// would). The second (air) jump is available until MAX_JUMPS is spent.
 			const canFirstJump = this.jumpsUsed === 0;
-			const canAirJump =
-				this.jumpsUsed > 0 && this.jumpsUsed < Player.MAX_JUMPS;
+			const canAirJump = this.jumpsUsed > 0 && this.jumpsUsed < MAX_JUMPS;
 			if (canFirstJump || canAirJump) {
 				this.vel.y = JUMP_VELOCITY;
 				this.onGround = false;

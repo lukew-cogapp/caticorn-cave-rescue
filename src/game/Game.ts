@@ -10,6 +10,27 @@ import {
 	type PlayerVariant,
 } from "./art";
 import { Chiptune } from "./audio";
+import {
+	CAGE_STOMP_TOLERANCE,
+	CAMERA_LERP,
+	DEATH_ANIM_TIME,
+	FALL_DAMAGE,
+	FLUTE_HEAL,
+	FREEZE_DEATH,
+	FREEZE_STOMP,
+	HARD_LAND_SPEED,
+	HIT_DAMAGE,
+	INVULN_TIME,
+	POOP_BOX,
+	POOP_DAMAGE,
+	POOP_LIFE,
+	POOP_LINGER,
+	POOP_SLOW,
+	START_HEALTH,
+	STOMP_BOUNCE,
+	STOMP_TOLERANCE,
+	WAYPOINT_TIME,
+} from "./const";
 import { Caticorn } from "./entities/Caticorn";
 import { Exit } from "./entities/Exit";
 import { createMonster, type Monster } from "./entities/Monster";
@@ -32,46 +53,6 @@ import {
 	TRAMPOLINE_VELOCITY,
 	type WorldContext,
 } from "./types";
-
-/** Seconds the death ghost animation plays before respawn / game-over. */
-const DEATH_ANIM_TIME = 1.1;
-/** Horizontal velocity multiplier while standing on a poop. */
-const POOP_SLOW = 0.55;
-/** Seconds the poop slow + brown feet linger after leaving the poop. */
-const POOP_LINGER = 1;
-/** Seconds a ground poop lasts before fading out and disappearing. */
-const POOP_LIFE = 5;
-/** Collision box (centred on poop's bottom-centre) used for the slow zone. */
-const POOP_BOX = { halfWidth: 14, height: 22 };
-
-/** Camera follow smoothing factor (per second); higher = snappier. */
-const CAMERA_LERP = 8;
-/** Min downward landing speed (px/sec) that triggers a hard-landing shake. */
-const HARD_LAND_SPEED = 520;
-/** Upward hop given to the player after a successful stomp. */
-const STOMP_BOUNCE = -380;
-/** Hit-stop freeze on a stomp (s) — a short punchy pause. */
-const FREEZE_STOMP = 0.06;
-/** Hit-stop freeze on death (s) — longer for weight. */
-const FREEZE_DEATH = 0.12;
-/** Invulnerability window after a monster hit, in seconds. */
-const INVULN_TIME = 1;
-/** Health is 0..1. Damage + heal fractions. */
-const START_HEALTH = 1;
-const FALL_DAMAGE = 1 / 3;
-const HIT_DAMAGE = 1 / 5;
-const FLUTE_HEAL = 1 / 5;
-/** Damage from a falling poop landing on the player's head. */
-const POOP_DAMAGE = 1 / 10;
-/** Seconds the "you missed someone" waypoint arrows stay visible. */
-const WAYPOINT_TIME = 3;
-/**
- * How far the player's feet may sit below a monster's top and still count as a
- * stomp rather than a side hit, in pixels.
- */
-const STOMP_TOLERANCE = 14;
-/** Vertical tolerance for landing a stomp on a cage roof, in px. */
-const CAGE_STOMP_TOLERANCE = 18;
 
 /**
  * Orchestrates the whole game: owns the Pixi app, builds each level's scene,

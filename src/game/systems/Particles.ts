@@ -1,5 +1,6 @@
 import type { Container } from "pixi.js";
 import { drawParticle } from "../art";
+import { MAX_PARTICLES, PARTICLE_LIFE } from "../const";
 
 /** Visual style for a particle burst. */
 export type ParticleKind = "spark" | "note" | "puff" | "dust";
@@ -12,11 +13,6 @@ interface Particle {
 	life: number;
 	maxLife: number;
 }
-
-/** Hard cap on live particles so bursts can never flood the scene. */
-const MAX_PARTICLES = 120;
-/** Lifetime of a spawned particle, in seconds. */
-const PARTICLE_LIFE = 0.5;
 
 /**
  * Deterministic particle pool. Bursts fan out with index-derived angles (never
