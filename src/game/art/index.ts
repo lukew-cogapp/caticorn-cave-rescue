@@ -19,7 +19,16 @@ export {
 	drawShackle,
 	drawTrampoline,
 } from "./props";
-export { drawBackground, drawDecor, drawGrassBlades } from "./scenery";
+export {
+	type BackgroundLayers,
+	drawBackground,
+	drawBackgroundLayers,
+	drawDecor,
+	drawFloorStrip,
+	drawGlowCluster,
+	drawGrassBlades,
+	drawPlatform,
+} from "./scenery";
 
 // Reference the player dimensions so they stay in sync with the renderer scale.
 void PLAYER_W;
