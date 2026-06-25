@@ -169,18 +169,23 @@ import { EN } from "../game/strings/en";
 				id="touch-controls"
 				class="pointer-events-none absolute inset-x-0 bottom-0 z-30 hidden items-end justify-between p-4 select-none"
 			>
-				<div class="pointer-events-auto flex gap-3">
+				<!-- Move pad: the two buttons sit flush in one pad so a thumb can slide
+				     continuously between left and right (handled in script). -->
+				<div
+					id="touch-move"
+					class="pointer-events-auto flex touch-none overflow-hidden rounded-full"
+				>
 					<button
 						id="btn-left"
 						type="button"
 						aria-label={EN.moveLeft}
-						class="flex h-16 w-16 items-center justify-center rounded-full bg-stone-900/55 text-2xl font-bold text-amber-50 backdrop-blur active:bg-stone-900/80"
+						class="flex h-16 w-16 items-center justify-center bg-stone-900/55 text-2xl font-bold text-amber-50 backdrop-blur active:bg-stone-900/80"
 					>‹</button>
 					<button
 						id="btn-right"
 						type="button"
 						aria-label={EN.moveRight}
-						class="flex h-16 w-16 items-center justify-center rounded-full bg-stone-900/55 text-2xl font-bold text-amber-50 backdrop-blur active:bg-stone-900/80"
+						class="flex h-16 w-16 items-center justify-center border-l border-white/15 bg-stone-900/55 text-2xl font-bold text-amber-50 backdrop-blur active:bg-stone-900/80"
 					>›</button>
 				</div>
 				<button
@@ -452,27 +457,84 @@ import { EN } from "../game/strings/en";
 		fsBtn.classList.add("hidden");
 	}
 
+	// Synthesize key up/down for the engine (which listens on window).
+	function keyDown(key: string) {
+		window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+	}
+	function keyUp(key: string) {
+		window.dispatchEvent(new KeyboardEvent("keyup", { key }));
+	}
+
+	// Movement pad (left/right): slide-aware. A single touch can glide between the
+	// left and right buttons and the held direction follows the thumb, because we
+	// hit-test the touch point each move rather than binding to whichever button
+	// the touch happened to start on. Holds ArrowLeft, ArrowRight, or neither.
+	const btnLeft = document.getElementById("btn-left");
+	const btnRight = document.getElementById("btn-right");
+	let heldDir: "ArrowLeft" | "ArrowRight" | null = null;
+
+	function setDir(dir: "ArrowLeft" | "ArrowRight" | null) {
+		if (dir === heldDir) return;
+		if (heldDir) keyUp(heldDir);
+		heldDir = dir;
+		if (heldDir) keyDown(heldDir);
+	}
+
+	// Which move button (if any) sits under a client point.
+	function dirAtPoint(x: number, y: number): "ArrowLeft" | "ArrowRight" | null {
+		const el = document.elementFromPoint(x, y);
+		if (el && btnLeft?.contains(el)) return "ArrowLeft";
+		if (el && btnRight?.contains(el)) return "ArrowRight";
+		return null;
+	}
+
+	function onMovePadTouch(e: TouchEvent) {
+		e.preventDefault();
+		// Track the first touch on the pad; ignore extra fingers (e.g. jump).
+		const t = e.touches[0];
+		setDir(t ? dirAtPoint(t.clientX, t.clientY) : null);
+	}
+	function onMovePadEnd(e: TouchEvent) {
+		e.preventDefault();
+		// Release only when no touches remain over the pad.
+		if (e.touches.length === 0) setDir(null);
+		else {
+			const t = e.touches[0];
+			setDir(dirAtPoint(t.clientX, t.clientY));
+		}
+	}
+
+	const movePad = document.getElementById("touch-move");
+	if (movePad) {
+		movePad.addEventListener("touchstart", onMovePadTouch, { passive: false });
+		movePad.addEventListener("touchmove", onMovePadTouch, { passive: false });
+		movePad.addEventListener("touchend", onMovePadEnd, { passive: false });
+		movePad.addEventListener("touchcancel", onMovePadEnd, { passive: false });
+		// Mouse fallback for desktop testing.
+		btnLeft?.addEventListener("mousedown", () => setDir("ArrowLeft"));
+		btnRight?.addEventListener("mousedown", () => setDir("ArrowRight"));
+		window.addEventListener("mouseup", () => setDir(null));
+	}
+
+	// Jump button: simple hold (independent finger).
 	function holdButton(id: string, key: string) {
 		const btn = document.getElementById(id);
 		if (!btn) return;
 		const press = (e: Event) => {
 			e.preventDefault();
-			window.dispatchEvent(new KeyboardEvent("keydown", { key }));
+			keyDown(key);
 		};
 		const release = (e: Event) => {
 			e.preventDefault();
-			window.dispatchEvent(new KeyboardEvent("keyup", { key }));
+			keyUp(key);
 		};
 		btn.addEventListener("touchstart", press, { passive: false });
 		btn.addEventListener("touchend", release, { passive: false });
 		btn.addEventListener("touchcancel", release, { passive: false });
-		// Mouse fallback (e.g. desktop testing / hybrid devices).
 		btn.addEventListener("mousedown", press);
 		btn.addEventListener("mouseup", release);
 		btn.addEventListener("mouseleave", release);
 	}
-	holdButton("btn-left", "ArrowLeft");
-	holdButton("btn-right", "ArrowRight");
 	holdButton("btn-jump", "ArrowUp");
 
 	// --- Fullscreen ---
