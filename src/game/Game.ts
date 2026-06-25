@@ -33,7 +33,7 @@ import {
 /** Seconds the death ghost animation plays before respawn / game-over. */
 const DEATH_ANIM_TIME = 1.1;
 /** Horizontal velocity multiplier while standing on a poop. */
-const POOP_SLOW = 0.35;
+const POOP_SLOW = 0.55;
 /** Seconds the poop slow + brown feet linger after leaving the poop. */
 const POOP_LINGER = 1;
 /** Collision box (centred on poop's bottom-centre) used for the slow zone. */
