@@ -84,6 +84,32 @@ export const POOP_LIFE = 5;
 /** Collision box (centred on poop's bottom-centre) used for the slow zone. */
 export const POOP_BOX = { halfWidth: 14, height: 22 };
 
+// --- Simulation loop (fixed timestep) ---
+
+/**
+ * Fixed simulation step, in seconds. The whole sim (player, monsters,
+ * collisions, particles, timers, camera, parallax) advances in constant
+ * increments of this size, decoupled from the render frame rate, so behaviour
+ * and determinism are identical regardless of the monitor's refresh rate.
+ *
+ * 1/120 s (≈8.33 ms) is chosen over 1/60: it is a clean divisor of common
+ * refresh rates (60/120/144 Hz all consume a whole number of steps most
+ * frames), keeps the per-step dt small enough that the previous variable-dt
+ * feel is preserved (it sits well under the old 0.05 s clamp, and was always
+ * ~1/60 at 60 Hz so two steps reproduce one old frame closely), and gives
+ * higher temporal resolution to the integrator for a touch more stability on
+ * fast jumps without changing any tuning constants.
+ */
+export const FIXED_DT = 1 / 120;
+/**
+ * Maximum real time (seconds) consumed by the accumulator in a single rendered
+ * frame. Caps how many fixed steps one frame may run so a long stall (tab
+ * refocus, GC pause, breakpoint) can never trigger a "spiral of death" where
+ * the sim tries to catch up forever. Leftover time beyond this is dropped.
+ * 0.25 s ≈ up to 30 fixed steps per frame.
+ */
+export const MAX_FRAME_TIME = 0.25;
+
 // --- Camera ---
 
 /** Camera follow smoothing factor (per second); higher = snappier. */

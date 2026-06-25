@@ -92,6 +92,19 @@ export function loadScene(
 	world.addChild(bgLayers.mid);
 	world.addChild(bgLayers.near);
 
+	// Perf: the mid + near layers are built once and never mutated (only their
+	// whole-container .x changes for parallax, which is free on a cached
+	// container), so rasterise each into a single texture instead of
+	// re-tessellating its dense Graphics every frame. The FAR layer is cached
+	// separately below because the pulsing glow clusters live on it and MUST stay
+	// animated — only its static Graphics child is cached, not the layer itself.
+	bgLayers.mid.cacheAsTexture(true);
+	bgLayers.near.cacheAsTexture(true);
+	// Cache only the far layer's static rock/gradient Graphics (its first + only
+	// child), leaving the glow clusters added next as uncached siblings so they
+	// keep pulsing. Moving the cached child for parallax is still cheap.
+	bgLayers.far.children[0]?.cacheAsTexture(true);
+
 	// Ambient pulsing glow clusters, parented to the FAR layer so they sit
 	// deepest and inherit its slow parallax. Placed deterministically: positions,
 	// radius and colour are derived from worldWidth + a fixed colour palette (no
@@ -122,7 +135,10 @@ export function loadScene(
 	const groundSpans = level.platforms
 		.filter((p) => p.y === GROUND_Y)
 		.map((p) => ({ x: p.x, w: p.w }));
-	world.addChild(drawFloorStrip(groundSpans, level.themeAccent));
+	// Static for the whole level: cache to one texture (no internal animation).
+	const floorStrip = drawFloorStrip(groundSpans, level.themeAccent);
+	floorStrip.cacheAsTexture(true);
+	world.addChild(floorStrip);
 
 	// Ambient fireflies in front of the backdrop but behind gameplay.
 	fireflies.spawn(level.worldWidth, 14);
@@ -143,6 +159,8 @@ export function loadScene(
 		if (d.kind === "stalactite") g.y = 0;
 		else if (d.kind === "crack") g.y = d.y;
 		else g.y = floorY;
+		// Decor is static art for the level's lifetime: cache to a texture.
+		g.cacheAsTexture(true);
 		world.addChild(g);
 
 		if (d.kind === "stalactite") {
@@ -163,11 +181,14 @@ export function loadScene(
 		const plat = drawPlatform(p.w, p.h, level.themeAccent);
 		plat.x = p.x;
 		plat.y = p.y;
+		// Static rock sprite: cache to a texture (never mutated after build).
+		plat.cacheAsTexture(true);
 		world.addChild(plat);
 		if (p.grass) {
 			const grass = drawGrassBlades(p.w);
 			grass.x = p.x;
 			grass.y = p.y;
+			grass.cacheAsTexture(true);
 			world.addChild(grass);
 		}
 	}

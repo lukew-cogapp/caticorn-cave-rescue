@@ -4,9 +4,11 @@ import { Chiptune } from "./audio";
 import {
 	DEATH_ANIM_TIME,
 	FALL_DAMAGE,
+	FIXED_DT,
 	FREEZE_DEATH,
 	FREEZE_STOMP,
 	INVULN_TIME,
+	MAX_FRAME_TIME,
 	POOP_DAMAGE,
 	POOP_LINGER,
 	START_HEALTH,
@@ -104,6 +106,12 @@ export class Game {
 	};
 	/** Elapsed run time in seconds, accumulated while playing. */
 	private elapsed = 0;
+	/**
+	 * Fixed-timestep accumulator (seconds). Real elapsed time is added each
+	 * rendered frame and drained in {@link FIXED_DT} chunks by {@link step}, so
+	 * the sim advances in constant increments independent of the frame rate.
+	 */
+	private accumulator = 0;
 	/** Poop falling from a lurker: sprite + vertical velocity, lands into a poop. */
 	private fallingPoops: FallingPoop[] = [];
 	private status: GameStatus = "playing";
@@ -199,6 +207,7 @@ export class Game {
 		this.state.score = 0;
 		this.state.songStep = 0;
 		this.elapsed = 0;
+		this.accumulator = 0;
 		this.glowPhase = 0;
 		this.dayPhase = 0;
 		this.paused = false;
@@ -242,13 +251,42 @@ export class Game {
 
 	// --- Level setup ---
 
+	/**
+	 * Tear down the previous level's display objects before rebuilding. Detaches
+	 * the three reusable shared views (fireflies, motes, health bar) so they
+	 * survive, recycles their internal sprite pools, then DESTROYS every remaining
+	 * world child — the level-owned static art (background layers, floor strip,
+	 * platforms, grass, decor) and entities (player, monsters, caticorns, exit,
+	 * flutes) plus any leftover particle/poop sprites.
+	 *
+	 * `destroy({ children: true })` frees each object's GPU geometry AND releases
+	 * any cacheAsTexture render texture it holds (Pixi 8 invalidates + frees the
+	 * cache on destroy), so the per-level caches added in loadScene don't leak
+	 * across level loads. Previously this was a bare `removeChildren()`, which
+	 * detached but never freed the old level's resources.
+	 */
+	private teardownLevel(): void {
+		// Detach the shared, reusable views first so they aren't destroyed; their
+		// own clear() recycles internal sprites and keeps the outer container.
+		this.world.removeChild(this.fireflies.view);
+		this.world.removeChild(this.motes.view);
+		this.world.removeChild(this.healthBar.view);
+		this.fireflies.clear();
+		this.motes.clear();
+		// Destroy everything else the previous level owned (art + entities +
+		// leftover juice sprites), freeing geometry and any cached textures.
+		for (const child of this.world.removeChildren()) {
+			child.destroy({ children: true });
+		}
+	}
+
 	private loadLevel(index: number): void {
 		this.level = this.levels[index];
-		this.world.removeChildren();
+		this.teardownLevel();
 		this.poops = [];
 		this.death = null;
-		// Particle views lived in `world`; removeChildren() above detached them, so
-		// just drop the pool references and reset the shake.
+		// Particle views were destroyed by teardownLevel (it destroys every
+		// world child); just drop the pool references and reset the shake.
 		this.particles.clear();
 		this.shake.reset();
 		this.state.poopTimer = 0;
@@ -282,13 +320,50 @@ export class Game {
 
 	// --- Simulation loop ---
 
+	/**
+	 * Per-rendered-frame driver. Accumulates real elapsed time and advances the
+	 * simulation in fixed {@link FIXED_DT} increments, running zero or more steps
+	 * this frame so the sim is frame-rate independent and deterministic.
+	 *
+	 * The accumulated time is clamped to {@link MAX_FRAME_TIME} so a long stall
+	 * (tab refocus, GC pause) can never trigger a spiral of death; the excess is
+	 * dropped. Pause and the not-yet-started state gate the whole loop (no time
+	 * accumulates while paused, matching the old single-pass behaviour).
+	 */
 	private readonly tick = (): void => {
 		// Idle until the player picks a character and start() loads a level.
 		if (!this.started) return;
-		// Paused: freeze everything (no sim, no juice) until unpaused.
-		if (this.paused) return;
-		const dt = Math.min(this.app.ticker.deltaMS / 1000, 0.05);
+		// Paused: freeze everything (no sim, no juice, no time accrual) until
+		// unpaused. Reset the accumulator so re-focusing while paused can't bank a
+		// burst of catch-up steps the moment play resumes.
+		if (this.paused) {
+			this.accumulator = 0;
+			return;
+		}
 
+		// Add this frame's real elapsed (clamped) and drain it in fixed chunks.
+		this.accumulator += Math.min(
+			this.app.ticker.deltaMS / 1000,
+			MAX_FRAME_TIME,
+		);
+		while (this.accumulator >= FIXED_DT) {
+			this.accumulator -= FIXED_DT;
+			this.step(FIXED_DT);
+		}
+	};
+
+	/**
+	 * Advance the whole simulation by one fixed {@link FIXED_DT} step. This is the
+	 * former per-frame `tick` body verbatim (same logic, same order, same early
+	 * exits) now invoked N times per rendered frame on a constant `dt`. Every
+	 * gameplay system, timer, juice effect and camera/parallax update runs here so
+	 * the sim stays fully deterministic and frame-rate independent. Early returns
+	 * (freeze / death / status / falling-poop death / collision-driven level end)
+	 * simply end the current step; the next queued step (if any) picks up next.
+	 *
+	 * @param dt The fixed step size in seconds ({@link FIXED_DT}).
+	 */
+	private step(dt: number): void {
 		this.dayPhase = updateDayNight(this.nightOverlay, this.dayPhase, dt);
 
 		// Particles + shake run every frame regardless of status so bursts finish
@@ -415,7 +490,7 @@ export class Game {
 			this.world.x,
 			dt,
 		);
-	};
+	}
 
 	/**
 	 * Scroll the parallax background layers and breathe the ambient glow clusters.
