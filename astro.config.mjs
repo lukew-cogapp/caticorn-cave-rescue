@@ -5,8 +5,7 @@ import { defineConfig } from "astro/config";
 
 // https://astro.build/config
 export default defineConfig({
-	site: "https://lukew-cogapp.github.io",
-	base: "/caticorn-cave-rescue",
+	site: "https://caticorn.lukehmu.com",
 	vite: {
 		plugins: [tailwindcss()],
 	},

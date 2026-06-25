@@ -9,8 +9,8 @@ interface Props {
 
 const { title = EN.title, description = EN.metaDescription } = Astro.props;
 
-// Prefix static asset paths with the configured base so links work on GitHub
-// Pages (served from /caticorn-cave-rescue/).
+// Prefix static asset paths with the configured base so links keep working if
+// a base path is ever reintroduced. Served from root on the custom domain.
 const favicon = `${import.meta.env.BASE_URL}/favicon.svg`.replace("//", "/");
 ---
 
