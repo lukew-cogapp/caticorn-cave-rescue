@@ -1,18 +1,25 @@
 import { Container, Graphics } from "pixi.js";
 import { EN } from "../strings/en";
+import { tintStr } from "./util";
 
 /**
- * Draw a spiral/rainbow unicorn horn into `g`, tip pointing up-forward.
- * `baseX`/`baseY` is where the horn meets the head; it leans slightly right
- * (the facing direction) to read as a jaunty heroic horn.
+ * Draw a straight unicorn horn into `g`, tip pointing straight up.
+ * `baseX`/`baseY` is where the horn meets the head; `color` sets the horn's
+ * single hue (per character). Spiral ridges are drawn in a darker shade of the
+ * same colour for a twisted look.
  */
-function addHorn(g: Graphics, baseX: number, baseY: number): void {
-	const tipX = baseX + 5;
+function addHorn(
+	g: Graphics,
+	baseX: number,
+	baseY: number,
+	color: string,
+): void {
+	const tipX = baseX;
 	const tipY = baseY - 18;
-	// Solid horn shape (a slim triangle, leaning forward).
-	g.poly([baseX - 4, baseY, baseX + 4, baseY, tipX, tipY]).fill("#ffd23f");
-	// Rainbow spiral stripes across the horn.
-	const stripes = ["#ff5d8f", "#ffd23f", "#5ad1c8", "#9b6bff"];
+	// Solid horn shape (a slim vertical triangle).
+	g.poly([baseX - 4, baseY, baseX + 4, baseY, tipX, tipY]).fill(color);
+	// Spiral ridges in a darker shade of the same colour for a twisted look.
+	const ridge = tintStr(color, "#000000", 0.28);
 	for (let i = 0; i < 4; i++) {
 		const t0 = i / 4;
 		const t1 = (i + 0.55) / 4;
@@ -26,7 +33,7 @@ function addHorn(g: Graphics, baseX: number, baseY: number): void {
 			.lineTo(x1 + (w * 0.45) / 2, y1)
 			.lineTo(x1 - (w * 0.45) / 2, y1)
 			.closePath()
-			.fill(stripes[i]);
+			.fill(ridge);
 	}
 }
 
@@ -157,6 +164,8 @@ function buildCaticorn(opts: {
 	hat?: HatId;
 	/** Draw a fuller head of hair (extra mane strands over the head). */
 	bigHair?: boolean;
+	/** Horn colour (per character). Defaults to gold. */
+	horn?: string;
 }): Container {
 	const c = new Container();
 	const g = new Graphics();
@@ -239,8 +248,8 @@ function buildCaticorn(opts: {
 		}
 	}
 
-	// Horn.
-	addHorn(g, 0, -52);
+	// Horn (per-character colour, defaults to gold).
+	addHorn(g, 0, -52, opts.horn ?? "#ffd23f");
 
 	// Cheek blush.
 	g.circle(-8, -37, 3).fill("#ff9ec4");
@@ -304,6 +313,8 @@ const PLAYER_PALETTES: Record<
 		hat: HatId;
 		/** Draw a fuller head of hair instead of a hat. */
 		bigHair?: boolean;
+		/** Horn colour, distinct per hero. */
+		horn: string;
 	}
 > = {
 	aubrey: {
@@ -311,12 +322,14 @@ const PLAYER_PALETTES: Record<
 		bodyDark: "#3a6bd0",
 		mane: ["#7ad0ff", "#ff9ec4", "#c8e6ff", "#ff5d8f"],
 		hat: "strawberry",
+		horn: "#ffd23f",
 	},
 	quinn: {
 		body: "#46c66a",
 		bodyDark: "#34a052",
 		mane: ["#b6f55a", "#ff9ec4", "#d8ffb0", "#ff5d8f"],
 		hat: "acorn",
+		horn: "#ffe07a",
 	},
 	// Summer: an older caticorn with a full head of pink hair (cream coat). No
 	// hat — the big pink hair is her look.
@@ -326,6 +339,7 @@ const PLAYER_PALETTES: Record<
 		mane: ["#ff8fc8", "#ff5da2", "#ffb3d9", "#ff6fb5"],
 		hat: "none",
 		bigHair: true,
+		horn: "#ff8fc8",
 	},
 	// Hallie: goth caticorn with black hair, all-black clothes + a skull tee.
 	hallie: {
@@ -335,6 +349,7 @@ const PLAYER_PALETTES: Record<
 		shirt: "#15121a",
 		skull: true,
 		hat: "crystal",
+		horn: "#c9a6ff",
 	},
 };
 
@@ -385,6 +400,7 @@ export function drawPlayer(variant: PlayerVariant): Container {
 		skull: p.skull,
 		hat: p.hat,
 		bigHair: p.bigHair,
+		horn: p.horn,
 	});
 }
 
@@ -472,6 +488,8 @@ export function drawCaticorn(happy = false, paletteIndex = 0): Container {
 		ear: p.body,
 		mane: p.mane,
 		sad: !happy,
+		// Individual horn per captive: the palette's accent mane colour.
+		horn: p.mane[2] ?? p.mane[0] ?? "#ffd23f",
 	});
 }
 
