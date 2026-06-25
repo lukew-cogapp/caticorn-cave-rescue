@@ -1,6 +1,7 @@
 import {
 	type CaticornSpec,
 	type Decor,
+	type FluteSpec,
 	GAME_WIDTH,
 	GRAVITY,
 	GROUND_Y,
@@ -241,6 +242,7 @@ function makeLevel(c: LevelConfig, index: number): Level {
 
 	const monsters = placeMonsters(c, worldWidth, groundSegs, rng);
 	const poops = placePoops(c, worldWidth, groundSegs, trampolines, rng);
+	const flutes = placeFlutes(worldWidth, groundSegs, rng);
 	const decor = makeDecor(worldWidth, groundSegs, rescues, trampolines, rng);
 
 	const level: Level = {
@@ -251,6 +253,7 @@ function makeLevel(c: LevelConfig, index: number): Level {
 		monsters,
 		poops,
 		trampolines,
+		flutes,
 		decor,
 		bg: c.bg,
 		moveSpeed: c.speed,
@@ -388,6 +391,28 @@ function placePoops(
 }
 
 /**
+ * Place 1-2 floating flute pickups (extra lives) above solid ground, at a
+ * height reachable by a single jump, away from the spawn tile.
+ */
+function placeFlutes(
+	worldWidth: number,
+	segs: GroundSeg[],
+	rng: () => number,
+): FluteSpec[] {
+	const flutes: FluteSpec[] = [];
+	const count = 2;
+	const floatY = GROUND_Y - 95; // single-jump reachable
+	for (let i = 0; i < count; i++) {
+		const jitter = (rng() - 0.5) * 60;
+		const x = worldWidth * ((i + 1) / (count + 1)) + jitter;
+		if (x < 150) continue;
+		if (!onSolidGround(x, segs)) continue;
+		flutes.push({ x, y: floatY });
+	}
+	return flutes;
+}
+
+/**
  * Scatter cave decor across the world. Stalactites hang from the ceiling but are
  * kept OFF forced jump arcs (above a rescue platform's landing zone or directly
  * above a trampoline), since ceiling spikes are lethal. Floor decor only sits on
@@ -479,21 +504,26 @@ export function checkReachability(level: Level): Reachability {
 		const height = GROUND_Y - top; // drop above ground take-off
 		if (height <= DOUBLE_JUMP_CAP) continue; // double jump suffices
 
-		// Otherwise a trampoline within reach must exist below/before it and be
-		// able to lift the player to the platform top.
-		const tramp = level.trampolines.find(
-			(t) => GROUND_Y - top <= TRAMPOLINE_CAP && onSolidGround(t.x, segs),
-		);
-		if (!tramp) {
-			return {
-				ok: false,
-				reason: `platform at x=${cat.x.toFixed(0)} height ${height.toFixed(0)}px needs a trampoline but none is reachable`,
-			};
-		}
 		if (height > TRAMPOLINE_CAP) {
 			return {
 				ok: false,
 				reason: `platform at x=${cat.x.toFixed(0)} height ${height.toFixed(0)}px exceeds trampoline cap ${TRAMPOLINE_CAP}px`,
+			};
+		}
+
+		// Otherwise a trampoline must exist on solid ground close enough that its
+		// bounce drifts onto this platform: within the platform footprint plus a
+		// single-jump horizontal reach on either side.
+		const reach = singleJumpReach(level.moveSpeed);
+		const left = (plat ? plat.x : cat.x) - reach;
+		const right = (plat ? plat.x + plat.w : cat.x) + reach;
+		const tramp = level.trampolines.find(
+			(t) => onSolidGround(t.x, segs) && t.x >= left && t.x <= right,
+		);
+		if (!tramp) {
+			return {
+				ok: false,
+				reason: `platform at x=${cat.x.toFixed(0)} height ${height.toFixed(0)}px needs a nearby trampoline but none is reachable`,
 			};
 		}
 	}
@@ -573,9 +603,16 @@ function repairPlatforms(level: Level): void {
 		const height = GROUND_Y - plat.y;
 		if (height <= DOUBLE_JUMP_CAP) continue;
 
+		// A nearby trampoline (within a single-jump reach of the footprint).
+		const reach = singleJumpReach(level.moveSpeed);
 		const hasTramp =
 			height <= TRAMPOLINE_CAP &&
-			level.trampolines.some((t) => onSolidGround(t.x, segs));
+			level.trampolines.some(
+				(t) =>
+					onSolidGround(t.x, segs) &&
+					t.x >= plat.x - reach &&
+					t.x <= plat.x + plat.w + reach,
+			);
 		if (hasTramp) continue;
 
 		// Prefer adding a trampoline if the platform fits the trampoline cap and

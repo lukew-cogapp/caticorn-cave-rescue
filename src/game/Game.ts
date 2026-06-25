@@ -2,6 +2,7 @@ import { type Application, Container, Graphics } from "pixi.js";
 import {
 	drawBackground,
 	drawDecor,
+	drawFlute,
 	drawGhost,
 	drawPoop,
 	drawTrampoline,
@@ -73,6 +74,8 @@ export class Game {
 	private trampolines: Rect[] = [];
 	/** Lethal spike collision boxes (stalactites + stalagmites). */
 	private spikes: Rect[] = [];
+	/** Flute pickups (extra life): sprite + box + collected flag + bob phase. */
+	private flutes: { view: Container; box: Rect; taken: boolean }[] = [];
 
 	/** Active death animation: ghost sprite + remaining time, or null. */
 	private death: { ghost: Container; t: number } | null = null;
@@ -161,6 +164,7 @@ export class Game {
 		this.poops = [];
 		this.trampolines = [];
 		this.spikes = [];
+		this.flutes = [];
 		this.death = null;
 
 		// Background gradient + cave mood.
@@ -219,6 +223,19 @@ export class Game {
 			this.world.addChild(g);
 			// Box covers the springy pad (top ~22px of the sprite).
 			this.trampolines.push({ x: spec.x - 30, y: spec.y - 24, w: 60, h: 24 });
+		}
+
+		// Flutes: floating extra-life pickups.
+		for (const spec of this.level.flutes) {
+			const g = drawFlute();
+			g.x = spec.x;
+			g.y = spec.y;
+			this.world.addChild(g);
+			this.flutes.push({
+				view: g,
+				box: { x: spec.x - 14, y: spec.y - 36, w: 28, h: 38 },
+				taken: false,
+			});
 		}
 
 		// Exit gate.
@@ -325,6 +342,19 @@ export class Game {
 			if (rectsOverlap(pBox, spike)) {
 				this.beginDeath();
 				return;
+			}
+		}
+
+		// Flutes: bob gently; collecting one grants an extra life.
+		for (const flute of this.flutes) {
+			if (flute.taken) continue;
+			flute.view.y += Math.sin(this.dayPhase * 3 + flute.box.x) * 0.4;
+			if (rectsOverlap(pBox, flute.box)) {
+				flute.taken = true;
+				flute.view.visible = false;
+				this.lives += 1;
+				this.audio.rescue();
+				this.emitHud();
 			}
 		}
 

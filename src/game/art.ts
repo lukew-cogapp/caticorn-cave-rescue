@@ -459,6 +459,30 @@ export function drawTrampoline(): Container {
 	return c;
 }
 
+/** A floating flute pickup (extra life), bottom-centre origin, ~30px tall. */
+export function drawFlute(): Container {
+	const c = new Container();
+	const g = new Graphics();
+	// Soft glow halo behind the flute.
+	g.circle(0, -18, 16).fill({ color: 0xffe680, alpha: 0.25 });
+	// Flute body: a slim golden pipe leaning slightly.
+	g.roundRect(-3, -32, 6, 30, 3).fill("#e8b84b");
+	// Lighter highlight stripe.
+	g.roundRect(-1, -31, 2, 28, 1).fill("#ffd884");
+	// Finger holes.
+	g.circle(0, -26, 1.3).fill("#9c7a28");
+	g.circle(0, -20, 1.3).fill("#9c7a28");
+	g.circle(0, -14, 1.3).fill("#9c7a28");
+	g.circle(0, -8, 1.3).fill("#9c7a28");
+	// Mouthpiece flare at the top.
+	g.poly([-4, -32, 4, -32, 2, -36, -2, -36]).fill("#f0c860");
+	// A couple of music-note sparkles.
+	g.circle(8, -28, 1.6).fill("#fff3c4");
+	g.circle(-8, -16, 1.4).fill("#fff3c4");
+	c.addChild(g);
+	return c;
+}
+
 /** A classic swirly poop hazard, bottom-centre origin, ~26px wide. */
 export function drawPoop(): Container {
 	const c = new Container();

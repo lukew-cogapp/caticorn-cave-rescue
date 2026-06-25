@@ -6,7 +6,7 @@ export const GAME_HEIGHT = 450;
 export const GROUND_Y = GAME_HEIGHT - 30;
 
 /** Tuning constants shared across entities. */
-export const GRAVITY = 1400; // px/sec^2
+export const GRAVITY = 1200; // px/sec^2 (gentle, slightly floaty fall)
 export const JUMP_VELOCITY = -560; // px/sec
 /** Upward launch velocity when bouncing off a trampoline (much higher jump). */
 export const TRAMPOLINE_VELOCITY = -960; // px/sec
@@ -55,6 +55,9 @@ export interface PoopSpec extends Vec2 {}
 /** A trampoline; landing on it while falling launches the player high. */
 export interface TrampolineSpec extends Vec2 {}
 
+/** A flute pickup; collecting it grants an extra life. */
+export interface FluteSpec extends Vec2 {}
+
 /** One playable level definition. */
 export interface Level {
 	name: string;
@@ -64,6 +67,7 @@ export interface Level {
 	monsters: MonsterSpec[];
 	poops: PoopSpec[];
 	trampolines: TrampolineSpec[];
+	flutes: FluteSpec[];
 	decor: Decor[];
 	/** Two-stop background gradient (top, bottom) for cave mood. */
 	bg: [string, string];
