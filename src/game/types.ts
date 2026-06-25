@@ -109,7 +109,8 @@ export interface HudState {
 	totalLevels: number;
 	rescued: number;
 	toRescue: number;
-	lives: number;
+	/** Player health, 0..1. */
+	health: number;
 	status: GameStatus;
 	/** Total caticorns rescued across the whole run (for the end summary). */
 	totalRescued: number;

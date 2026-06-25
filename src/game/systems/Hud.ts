@@ -15,7 +15,6 @@ export interface HudData {
 	totalLevels: number;
 	rescued: number;
 	toRescue: number;
-	lives: number;
 	score: number;
 	elapsed: number; // seconds
 }
@@ -68,8 +67,8 @@ export class Hud {
 		const name = EN.levels[d.levelName] ?? d.levelName;
 		this.level.text = EN.hudLevel(name, d.levelIndex + 1, d.totalLevels);
 		this.rescued.text = EN.hudRescued(d.rescued, d.toRescue);
-		// Right group: score, timer, lives. Right-aligned to the play-area edge.
-		this.stats.text = `${EN.hudScore(d.score)}   ${formatTime(d.elapsed)}   ${EN.hudLives(d.lives)}`;
+		// Right group: score + timer (health is shown by the floating bar).
+		this.stats.text = `${EN.hudScore(d.score)}   ${formatTime(d.elapsed)}`;
 		this.stats.x = GAME_WIDTH - 12 - this.stats.width;
 	}
 }

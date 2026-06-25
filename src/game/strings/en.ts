@@ -17,7 +17,6 @@ export const EN = {
 	/** In-canvas HUD. */
 	hudRescued: (rescued: number, total: number) => `Rescued ${rescued}/${total}`,
 	hudScore: (score: number) => `Score ${score}`,
-	hudLives: (lives: number) => `Lives ${lives}`,
 	/** Level readout, e.g. "The Shallows  ·  2/4". */
 	hudLevel: (name: string, index: number, total: number) =>
 		`${name}  ·  ${index}/${total}`,

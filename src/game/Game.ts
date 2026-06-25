@@ -16,6 +16,7 @@ import { createMonster, type Monster } from "./entities/Monster";
 import { Player } from "./entities/Player";
 import { buildLevels } from "./levels";
 import { Fireflies } from "./systems/Fireflies";
+import { HealthBar } from "./systems/HealthBar";
 import { Hud } from "./systems/Hud";
 import { Particles } from "./systems/Particles";
 import { ScreenShake } from "./systems/ScreenShake";
@@ -25,9 +26,9 @@ import {
 	type GameStatus,
 	type HudCallback,
 	type Level,
+	PLAYER_H,
 	type Rect,
 	rectsOverlap,
-	START_LIVES,
 	TRAMPOLINE_VELOCITY,
 	type WorldContext,
 } from "./types";
@@ -55,6 +56,13 @@ const FREEZE_STOMP = 0.06;
 const FREEZE_DEATH = 0.12;
 /** Invulnerability window after a monster hit, in seconds. */
 const INVULN_TIME = 1;
+/** Health is 0..1. Damage + heal fractions. */
+const START_HEALTH = 1;
+const FALL_DAMAGE = 1 / 3;
+const HIT_DAMAGE = 1 / 5;
+const FLUTE_HEAL = 1 / 5;
+/** Damage from a falling poop landing on the player's head. */
+const POOP_DAMAGE = 1 / 10;
 /**
  * How far the player's feet may sit below a monster's top and still count as a
  * stomp rather than a side hit, in pixels.
@@ -85,6 +93,8 @@ export class Game {
 	private readonly hud = new Hud();
 	/** Ambient background fireflies (added behind gameplay in the world). */
 	private readonly fireflies = new Fireflies();
+	/** Floating health bar above the player's head. */
+	private readonly healthBar = new HealthBar();
 	/** Juice systems: particle pool (parented to the world) + screen shake. */
 	private readonly particles = new Particles(this.world);
 	/** Screen shake; initialised in the constructor once `app` is set. */
@@ -94,7 +104,8 @@ export class Game {
 	private variant: PlayerVariant = "aubrey";
 
 	private levelIndex = 0;
-	private lives = START_LIVES;
+	/** Player health, 0..1. Replaces discrete lives. */
+	private health = START_HEALTH;
 	/** Caticorns rescued across the whole run (persists across levels). */
 	private totalRescued = 0;
 	/** Score: +1 per caticorn rescued, +1 per monster stomped. */
@@ -185,7 +196,7 @@ export class Game {
 		this.audio.resume();
 		if (seed !== undefined) this.levels = buildLevels(seed);
 		this.levelIndex = 0;
-		this.lives = START_LIVES;
+		this.health = START_HEALTH;
 		this.totalRescued = 0;
 		this.score = 0;
 		this.elapsed = 0;
@@ -340,9 +351,10 @@ export class Game {
 			this.world.addChild(m.view);
 		}
 
-		// Player on top.
+		// Player on top, with the floating health bar above it.
 		this.player = Player.create(this.level.spawn, this.variant);
 		this.world.addChild(this.player.view);
+		this.world.addChild(this.healthBar.view);
 
 		this.status = "playing";
 		this.emitHud();
@@ -417,10 +429,16 @@ export class Game {
 			) {
 				this.player.slamDown();
 				this.poopTimer = POOP_LINGER;
+				this.health -= POOP_DAMAGE;
+				this.emitHud();
 				this.particles.burst(fp.x, fp.view.y, "dust", 5);
 				this.world.removeChild(fp.view);
 				fp.view.destroy({ children: true });
 				this.fallingPoops.splice(i, 1);
+				if (this.health <= 0) {
+					this.beginDeath(true);
+					return;
+				}
 				continue;
 			}
 
@@ -506,6 +524,13 @@ export class Game {
 		this.updateFallingPoops(dt);
 		this.updatePoops(dt);
 		this.fireflies.update(dt);
+
+		// Float the health bar above the player's head.
+		this.healthBar.update(
+			this.player.pos.x,
+			this.player.pos.y - PLAYER_H - 14,
+			this.health,
+		);
 
 		// Invulnerability after a hit: count down and blink the player.
 		if (this.invulnTimer > 0) {
@@ -621,7 +646,7 @@ export class Game {
 			if (rectsOverlap(pBox, flute.box)) {
 				flute.taken = true;
 				flute.view.visible = false;
-				this.lives += 1;
+				this.health = Math.min(1, this.health + FLUTE_HEAL);
 				this.particles.burst(
 					flute.box.x + flute.box.w / 2,
 					flute.box.y + 8,
@@ -679,24 +704,22 @@ export class Game {
 		this.world.x += (clamped - this.world.x) * Math.min(1, dt * CAMERA_LERP);
 	}
 
-	// --- Death / lives ---
+	// --- Damage / death ---
 
 	/**
-	 * Take a hit from a monster/spike: lose a life in place (no ghost, no
-	 * respawn) and gain a brief invulnerability window. If that was the last
-	 * life, fall through to the ghost death + game over.
+	 * Take a monster/spike hit: lose HIT_DAMAGE health in place (no ghost, no
+	 * respawn) with a brief invulnerability window. If health runs out, fall
+	 * through to the ghost death + game over.
 	 *
 	 * @returns true if the run ended (caller should stop this frame's update).
 	 */
 	private hitByMonster(): boolean {
-		// On the last life, hand off to the ghost death, which owns the single
-		// life decrement (in updateDeath) — don't decrement here too.
-		if (this.lives <= 1) {
-			this.beginDeath();
+		this.health -= HIT_DAMAGE;
+		this.emitHud();
+		if (this.health <= 0) {
+			this.beginDeath(true);
 			return true;
 		}
-		this.lives -= 1;
-		this.emitHud();
 		this.audio.hurt();
 		this.shake.add(4);
 		this.freezeTimer = FREEZE_STOMP;
@@ -705,11 +728,17 @@ export class Game {
 	}
 
 	/**
-	 * Ghost death: used when falling down a hole or losing the last life. Plays
-	 * the floating-ghost animation, then respawns at the level start (hole) or
-	 * ends the run (out of lives) in updateDeath().
+	 * Ghost death: falling down a hole costs FALL_DAMAGE then respawns at the
+	 * level start (if any health remains); a fatal hit ends the run. Plays the
+	 * floating-ghost animation; the outcome is resolved in updateDeath().
+	 *
+	 * @param fatal When true, the run is already over (health spent elsewhere).
 	 */
-	private beginDeath(): void {
+	private beginDeath(fatal = false): void {
+		if (!fatal) {
+			this.health -= FALL_DAMAGE;
+			this.emitHud();
+		}
 		this.audio.hurt();
 		this.shake.add(7);
 		this.freezeTimer = FREEZE_DEATH;
@@ -729,19 +758,19 @@ export class Game {
 		this.death.t -= dt;
 		if (this.death.t > 0) return;
 
-		// Animation done: resolve life loss.
+		// Animation done: respawn if any health remains, else end the run.
 		this.world.removeChild(this.death.ghost);
 		this.death.ghost.destroy({ children: true });
 		this.death = null;
-		this.lives -= 1;
 
-		if (this.lives <= 0) {
+		if (this.health <= 0) {
 			this.status = "lost";
 			this.emitHud();
 			return;
 		}
 		this.player.respawn(this.level.spawn);
 		this.player.view.visible = true;
+		this.invulnTimer = INVULN_TIME;
 		this.emitHud();
 	}
 
@@ -766,7 +795,6 @@ export class Game {
 			totalLevels: this.levels.length,
 			rescued: this.caticorns.filter((c) => c.rescued).length,
 			toRescue: this.caticorns.length,
-			lives: this.lives,
 			score: this.score,
 			elapsed: this.elapsed,
 		});
@@ -785,7 +813,7 @@ export class Game {
 			totalLevels: this.levels.length,
 			rescued,
 			toRescue,
-			lives: this.lives,
+			health: this.health,
 			status: this.status,
 			totalRescued: this.totalRescued,
 			elapsed: this.elapsed,
