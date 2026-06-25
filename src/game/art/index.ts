@@ -5,6 +5,7 @@ export {
 	CHARACTERS,
 	drawCaticorn,
 	drawGhost,
+	drawLuke,
 	drawPlayer,
 	type PlayerVariant,
 } from "./characters";

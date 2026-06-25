@@ -551,3 +551,128 @@ export function drawGhost(variant: PlayerVariant): Container {
 	c.alpha = 0.85;
 	return c;
 }
+
+/**
+ * Draw "Luke": a human boss-crawler for the final cave, a friendly likeness of a
+ * real person — roughly the size of a rescuable caticorn (taller than a normal
+ * crawler). Recognisable look: a big bushy brown beard, a full head of brown
+ * curls, square AMBER glasses, and a bright YELLOW zip jacket over a dark tee.
+ * He carries a sword. Bottom-centre origin (feet at y=0), drawn upward with
+ * negative y, facing right (the caller flips scale.x for the leftward leg).
+ *
+ * When `swinging` is true the sword is drawn EXTENDED out to the right (a wide
+ * horizontal slash) instead of held upright — the telegraph for the frames where
+ * his hitbox widens. Geometry is deterministic (fixed coords); the caller drives
+ * the swing timing.
+ *
+ * @param swinging - Draw the sword extended (wide-slash pose) instead of resting.
+ * @returns A Pixi {@link Container} drawn at its local origin (bottom-centre).
+ */
+export function drawLuke(swinging = false): Container {
+	const c = new Graphics();
+
+	const skin = "#e8b88f";
+	const skinDark = "#d39a6f";
+	const hair = "#6b4a2b";
+	const hairDark = "#4f361f";
+	const jacket = "#f6b21a"; // bright yellow zip jacket
+	const jacketDark = "#d8930c";
+	const tee = "#2b3038"; // dark tee under the open jacket
+	const trouser = "#37404a";
+	const amber = "#f0a81e"; // square amber glasses frames
+	const blade = "#d8dde6";
+	const bladeLit = "#f4f7fb";
+	const guard = "#caa23a";
+
+	// Legs (short, planted for the walk) — bottom-centre origin at the feet.
+	c.roundRect(-7, -12, 5, 12, 2).fill(trouser);
+	c.roundRect(2, -12, 5, 12, 2).fill(trouser);
+	c.roundRect(-8, -2, 7, 3, 1).fill("#222831"); // shoes
+	c.roundRect(1, -2, 7, 3, 1).fill("#222831");
+
+	// Torso: yellow jacket, a touch taller than a crawler so he reads as bigger.
+	c.roundRect(-10, -31, 20, 21, 5).fill(jacket);
+	// Dark tee showing in the open V of the jacket.
+	c.poly([-3, -31, 3, -31, 1.5, -16, -1.5, -16]).fill(tee);
+	// Jacket zip edges + a side shade for form.
+	c.rect(-1, -31, 0.8, 15).fill(jacketDark);
+	c.rect(0.2, -31, 0.8, 15).fill(jacketDark);
+	c.ellipse(6, -19, 3.5, 7).fill(jacketDark);
+
+	// Arms (jacket sleeves). The right arm holds the sword; pose changes on swing.
+	if (swinging) {
+		// Right arm thrust out to the side for a wide horizontal slash.
+		c.roundRect(7, -27, 14, 5, 2.5).fill(jacket);
+		c.circle(21, -24, 2.6).fill(skinDark); // fist
+	} else {
+		// Right arm bent up, sword resting upright.
+		c.roundRect(7, -29, 5, 13, 2.5).fill(jacket);
+		c.circle(10, -31, 2.6).fill(skinDark); // fist near the hilt
+	}
+	// Left arm at the side.
+	c.roundRect(-12, -29, 5, 13, 2.5).fill(jacket);
+
+	// Sword: extended to the right when swinging (the wide-hitbox telegraph),
+	// otherwise held upright.
+	if (swinging) {
+		c.roundRect(21, -26, 30, 4, 2).fill(blade);
+		c.rect(21, -26, 30, 1.5).fill(bladeLit); // lit top edge
+		c.poly([51, -24, 57, -24, 51, -20]).fill(blade); // pointed tip
+		c.rect(17, -28, 3, 8).fill(guard); // crossguard
+		c.roundRect(12, -27, 6, 6, 2).fill("#5a3a1f"); // grip
+	} else {
+		c.roundRect(11, -53, 4, 26, 2).fill(blade);
+		c.rect(11, -53, 1.5, 26).fill(bladeLit);
+		c.poly([11, -53, 15, -53, 13, -59]).fill(blade); // tip
+		c.rect(8, -27, 10, 3).fill(guard); // crossguard
+		c.roundRect(11, -24, 4, 6, 2).fill("#5a3a1f"); // grip
+	}
+
+	// Head.
+	c.circle(0, -39, 8).fill(skin);
+	c.ellipse(4, -39, 3, 5).fill(skinDark); // cheek shading
+
+	// Big bushy beard: a broad rounded mass covering the lower face + jaw.
+	c.moveTo(-8, -41)
+		.quadraticCurveTo(-10, -30, -4, -26)
+		.quadraticCurveTo(0, -24, 4, -26)
+		.quadraticCurveTo(10, -30, 8, -41)
+		.quadraticCurveTo(4, -35, 0, -35)
+		.quadraticCurveTo(-4, -35, -8, -41)
+		.fill(hair);
+	// A few darker tufts for a bushy, textured beard.
+	c.circle(-5, -31, 2.4).fill(hairDark);
+	c.circle(0, -29, 2.6).fill(hairDark);
+	c.circle(5, -31, 2.4).fill(hairDark);
+
+	// Full curly brown hair: a fuller mound of overlapping circles, framing down
+	// the sides past the temples.
+	for (const [hx, hy, hr] of [
+		[-7, -44, 4.5],
+		[-2, -47, 5],
+		[3, -47, 5],
+		[7, -44, 4.5],
+		[-9, -40, 3.8],
+		[9, -40, 3.8],
+		[-8, -36, 3],
+		[8, -36, 3],
+	] as const) {
+		c.circle(hx, hy, hr).fill(hair);
+	}
+	c.circle(-2, -48, 2.2).fill(hairDark);
+	c.circle(5, -47, 2).fill(hairDark);
+
+	// Square amber glasses: two rounded-rect rims + a bridge, over the eyes.
+	c.roundRect(-7, -41.5, 6, 5, 1.5).stroke({ color: amber, width: 1.6 });
+	c.roundRect(1, -41.5, 6, 5, 1.5).stroke({ color: amber, width: 1.6 });
+	c.moveTo(-1, -39)
+		.lineTo(1, -39)
+		.stroke({ color: amber, width: 1.6, cap: "round" });
+	// Eyes behind the lenses.
+	c.circle(-4, -39, 1.2).fill("#28323c");
+	c.circle(4, -39, 1.2).fill("#28323c");
+
+	const wrap = new Container();
+	wrap.addChild(c);
+	return wrap;
+}
