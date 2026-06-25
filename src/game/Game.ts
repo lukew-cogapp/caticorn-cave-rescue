@@ -1,10 +1,9 @@
-import { type Application, Container, Graphics, Text } from "pixi.js";
+import { type Application, Container, Graphics } from "pixi.js";
 import {
 	drawBackground,
 	drawDecor,
 	drawFlute,
 	drawGhost,
-	drawParticle,
 	drawPoop,
 	drawTrampoline,
 	type PlayerVariant,
@@ -15,7 +14,9 @@ import { Exit } from "./entities/Exit";
 import { createMonster, type Monster } from "./entities/Monster";
 import { Player } from "./entities/Player";
 import { buildLevels } from "./levels";
-import { EN } from "./strings/en";
+import { Hud } from "./systems/Hud";
+import { Particles } from "./systems/Particles";
+import { ScreenShake } from "./systems/ScreenShake";
 import {
 	GAME_HEIGHT,
 	GAME_WIDTH,
@@ -42,10 +43,6 @@ const POOP_BOX = { halfWidth: 14, height: 22 };
 const CAMERA_LERP = 8;
 /** Min downward landing speed (px/sec) that triggers a hard-landing shake. */
 const HARD_LAND_SPEED = 520;
-/** Hard cap on live particles so bursts can never flood the scene. */
-const MAX_PARTICLES = 120;
-/** Lifetime of a spawned particle, in seconds. */
-const PARTICLE_LIFE = 0.5;
 /** Upward hop given to the player after a successful stomp. */
 const STOMP_BOUNCE = -380;
 /**
@@ -53,15 +50,6 @@ const STOMP_BOUNCE = -380;
  * stomp rather than a side hit, in pixels.
  */
 const STOMP_TOLERANCE = 14;
-
-/** A short-lived visual fleck (spark/note/puff/dust) animated by the loop. */
-interface Particle {
-	view: Container;
-	vx: number;
-	vy: number;
-	life: number;
-	maxLife: number;
-}
 
 /**
  * Orchestrates the whole game: owns the Pixi app, builds each level's scene,
@@ -82,12 +70,12 @@ export class Game {
 	/** Day/night phase accumulator in seconds. */
 	private dayPhase = 0;
 
-	/** Fixed in-canvas HUD layer (level / lives / rescued), above the world. */
-	private readonly hud = new Container();
-	private hudLevel!: Text;
-	private hudRescued!: Text;
-	private hudLives!: Text;
-	/** Sub-layer for entities so we can clear them between levels. */
+	/** Fixed in-canvas HUD (level / rescued / lives), above the world. */
+	private readonly hud = new Hud();
+	/** Juice systems: particle pool (parented to the world) + screen shake. */
+	private readonly particles = new Particles(this.world);
+	/** Screen shake; initialised in the constructor once `app` is set. */
+	private readonly shake: ScreenShake;
 
 	private readonly keys = new Set<string>();
 	private variant: PlayerVariant = "aubrey";
@@ -121,13 +109,6 @@ export class Game {
 	/** Active death animation: ghost sprite + remaining time, or null. */
 	private death: { ghost: Container; t: number } | null = null;
 
-	/** Live juice particles, advanced + culled every frame. */
-	private particles: Particle[] = [];
-	/** Remaining screen-shake magnitude in px; decays to 0 each frame. */
-	private shakeMag = 0;
-	/** Accumulating phase driving the deterministic shake offset. */
-	private shakePhase = 0;
-
 	private readonly onKeyDown: (e: KeyboardEvent) => void;
 	private readonly onKeyUp: (e: KeyboardEvent) => void;
 
@@ -135,6 +116,7 @@ export class Game {
 		this.app = app;
 		this.onHud = onHud;
 		this.levels = buildLevels();
+		this.shake = new ScreenShake(this.app.stage);
 		this.app.stage.addChild(this.world);
 
 		// Day/night tint sits above the world (fixed, doesn't scroll). A deep
@@ -147,11 +129,9 @@ export class Game {
 		this.nightOverlay.alpha = 0;
 		this.app.stage.addChild(this.nightOverlay);
 
-		// In-canvas HUD, drawn above the world + tint so it stays legible. A pill
-		// backdrop with three text readouts; updated in emitHud(). Sits at a fixed
+		// In-canvas HUD, drawn above the world + tint so it stays legible. Fixed
 		// screen position (added to stage, not the scrolling world).
-		this.buildHud();
-		this.app.stage.addChild(this.hud);
+		this.app.stage.addChild(this.hud.view);
 
 		this.onKeyDown = (e) => {
 			if (
@@ -222,10 +202,10 @@ export class Game {
 		this.spikes = [];
 		this.flutes = [];
 		this.death = null;
-		// Particle views live in `world`; removeChildren() above detached them, so
-		// just drop the references (their GPU resources go with the cleared world).
-		this.particles = [];
-		this.shakeMag = 0;
+		// Particle views lived in `world`; removeChildren() above detached them, so
+		// just drop the pool references and reset the shake.
+		this.particles.clear();
+		this.shake.reset();
 		this.poopTimer = 0;
 
 		// Background gradient + cave mood.
@@ -344,8 +324,8 @@ export class Game {
 
 		// Particles + shake run every frame regardless of status so bursts finish
 		// even on the win/lose/death frame.
-		this.updateParticles(dt);
-		this.updateShake(dt);
+		this.particles.update(dt);
+		this.shake.update(dt);
 
 		// Death animation overrides normal play until it finishes.
 		if (this.death) {
@@ -385,8 +365,8 @@ export class Game {
 					this.player.pos.y = tramp.y;
 					this.player.bounce(TRAMPOLINE_VELOCITY);
 					this.player.view.y = this.player.pos.y;
-					this.spawnBurst(this.player.pos.x, this.player.pos.y, "puff", 8);
-					this.shake(3);
+					this.particles.burst(this.player.pos.x, this.player.pos.y, "puff", 8);
+					this.shake.add(3);
 					break;
 				}
 			}
@@ -399,10 +379,10 @@ export class Game {
 			this.player.justLanded &&
 			this.player.landImpactSpeed > HARD_LAND_SPEED
 		) {
-			this.spawnBurst(this.player.pos.x, this.player.pos.y, "dust", 6);
+			this.particles.burst(this.player.pos.x, this.player.pos.y, "dust", 6);
 			if (this.player.landedFromDoubleJump) {
 				const t = Math.min(1, this.player.landImpactSpeed / 1400);
-				this.shake(2 + t * 3);
+				this.shake.add(2 + t * 3);
 			}
 		}
 
@@ -438,8 +418,8 @@ export class Game {
 			if (stomp) {
 				m.kill();
 				this.player.bounce(STOMP_BOUNCE);
-				this.spawnBurst(m.pos.x, m.pos.y - mBox.h / 2, "puff", 8);
-				this.shake(3);
+				this.particles.burst(m.pos.x, m.pos.y - mBox.h / 2, "puff", 8);
+				this.shake.add(3);
 				this.audio.rescue();
 			} else {
 				this.beginDeath();
@@ -463,7 +443,7 @@ export class Game {
 				flute.taken = true;
 				flute.view.visible = false;
 				this.lives += 1;
-				this.spawnBurst(
+				this.particles.burst(
 					flute.box.x + flute.box.w / 2,
 					flute.box.y + 8,
 					"note",
@@ -480,7 +460,7 @@ export class Game {
 				cat.rescue();
 				this.totalRescued += 1;
 				const cBox = cat.aabb();
-				this.spawnBurst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
+				this.particles.burst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
 				this.audio.rescue();
 				this.emitHud();
 			}
@@ -510,115 +490,11 @@ export class Game {
 		this.world.x += (clamped - this.world.x) * Math.min(1, dt * CAMERA_LERP);
 	}
 
-	// --- Juice: screen shake + particles ---
-
-	/**
-	 * Add to the current screen-shake magnitude (px). The largest active impulse
-	 * wins rather than stacking, so chained events stay tasteful.
-	 *
-	 * @param intensity Peak offset in pixels for this shake.
-	 */
-	private shake(intensity: number): void {
-		this.shakeMag = Math.max(this.shakeMag, intensity);
-	}
-
-	/**
-	 * Advance the screen shake: decay the magnitude and drive a deterministic
-	 * offset on the stage from fast sine/cosine of an accumulating phase (no
-	 * Math.random). Resets the stage offset to 0 once the shake has died out.
-	 *
-	 * @param dt Seconds since the last frame.
-	 */
-	private updateShake(dt: number): void {
-		this.shakePhase += dt;
-		if (this.shakeMag <= 0.01) {
-			this.shakeMag = 0;
-			if (this.app.stage.pivot.x !== 0 || this.app.stage.pivot.y !== 0) {
-				this.app.stage.pivot.set(0, 0);
-			}
-			return;
-		}
-		// Pivot shifts the whole stage; using pivot keeps stage.x/y (letterbox
-		// offset from resize) untouched.
-		const ox = Math.sin(this.shakePhase * 90) * this.shakeMag;
-		const oy = Math.cos(this.shakePhase * 70) * this.shakeMag;
-		this.app.stage.pivot.set(ox, oy);
-		// Exponential-ish decay, frame-rate independent.
-		this.shakeMag -= this.shakeMag * Math.min(1, dt * 9);
-	}
-
-	/**
-	 * Spawn `count` particles of `kind` at a world point with a deterministic
-	 * radial spread (index-based angles, never Math.random). Particles are added
-	 * to the world and animated/culled by updateParticles(). Bursts are ignored
-	 * once the live cap is reached so the scene never floods.
-	 *
-	 * @param x World x of the burst origin.
-	 * @param y World y of the burst origin.
-	 * @param kind Visual style passed to drawParticle().
-	 * @param count Number of particles to emit.
-	 */
-	private spawnBurst(
-		x: number,
-		y: number,
-		kind: "spark" | "note" | "puff" | "dust",
-		count: number,
-	): void {
-		if (this.particles.length >= MAX_PARTICLES) return;
-		const n = Math.min(count, MAX_PARTICLES - this.particles.length);
-		for (let i = 0; i < n; i++) {
-			const angle = (i / n) * Math.PI * 2;
-			// Spread speed varies a touch by index for a less uniform ring.
-			const speed = 80 + (i % 3) * 40;
-			const view = drawParticle(kind);
-			view.x = x;
-			view.y = y;
-			this.world.addChild(view);
-			// "note" drifts upward musically; others fan out radially with a slight
-			// upward bias so they read as a pop rather than a flat circle.
-			const vx = Math.cos(angle) * speed;
-			const vy =
-				kind === "note" ? -90 - (i % 3) * 30 : Math.sin(angle) * speed - 60;
-			this.particles.push({
-				view,
-				vx,
-				vy,
-				life: PARTICLE_LIFE,
-				maxLife: PARTICLE_LIFE,
-			});
-		}
-	}
-
-	/**
-	 * Advance every live particle: integrate motion under light gravity, fade and
-	 * shrink over its lifetime, and destroy + remove it when spent.
-	 *
-	 * @param dt Seconds since the last frame.
-	 */
-	private updateParticles(dt: number): void {
-		for (let i = this.particles.length - 1; i >= 0; i--) {
-			const p = this.particles[i];
-			p.life -= dt;
-			if (p.life <= 0) {
-				this.world.removeChild(p.view);
-				p.view.destroy({ children: true });
-				this.particles.splice(i, 1);
-				continue;
-			}
-			p.vy += 420 * dt; // gentle gravity so they arc and settle
-			p.view.x += p.vx * dt;
-			p.view.y += p.vy * dt;
-			const k = p.life / p.maxLife; // 1 -> 0
-			p.view.alpha = k;
-			p.view.scale.set(0.4 + k * 0.6);
-		}
-	}
-
 	// --- Death / lives ---
 
 	private beginDeath(): void {
 		this.audio.hurt();
-		this.shake(7);
+		this.shake.add(7);
 		const ghost = drawGhost(this.variant);
 		ghost.x = this.player.pos.x;
 		ghost.y = this.player.pos.y;
@@ -669,16 +545,14 @@ export class Game {
 
 		// Update the in-canvas HUD readouts.
 		if (this.level) {
-			const name = EN.levels[this.level.name] ?? this.level.name;
-			this.hudLevel.text = EN.hudLevel(
-				name,
-				this.levelIndex + 1,
-				this.levels.length,
-			);
-			this.hudRescued.text = EN.hudRescued(rescued, toRescue);
-			this.hudLives.text = EN.hudLives(this.lives);
-			// Right-align the lives readout to the play area's right edge.
-			this.hudLives.x = GAME_WIDTH - 12 - this.hudLives.width;
+			this.hud.update({
+				levelName: this.level.name,
+				levelIndex: this.levelIndex,
+				totalLevels: this.levels.length,
+				rescued,
+				toRescue,
+				lives: this.lives,
+			});
 		}
 
 		// Still notify the host page for the win/lose overlay (DOM).
@@ -693,34 +567,5 @@ export class Game {
 			totalRescued: this.totalRescued,
 			elapsed: this.elapsed,
 		});
-	}
-
-	/** Build the fixed in-canvas HUD: a translucent bar with three readouts. */
-	private buildHud(): void {
-		const bar = new Graphics()
-			.roundRect(8, 8, GAME_WIDTH - 16, 26, 8)
-			.fill({ color: 0x1a1124, alpha: 0.55 });
-		this.hud.addChild(bar);
-
-		const style = {
-			fill: "#ffe9b8",
-			fontSize: 14,
-			fontWeight: "bold" as const,
-			fontFamily: "system-ui, sans-serif",
-		};
-		this.hudLevel = new Text({ text: "", style });
-		this.hudLevel.x = 14;
-		this.hudLevel.y = 13;
-
-		this.hudRescued = new Text({ text: "", style });
-		this.hudRescued.anchor.set(0.5, 0);
-		this.hudRescued.x = GAME_WIDTH / 2;
-		this.hudRescued.y = 13;
-
-		this.hudLives = new Text({ text: "", style });
-		this.hudLives.y = 13;
-
-		this.hud.addChild(this.hudLevel, this.hudRescued, this.hudLives);
-		this.hud.eventMode = "none";
 	}
 }
