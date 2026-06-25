@@ -8,8 +8,9 @@ export type { HudCallback, HudState } from "./types";
 
 /** Handle the host page uses to drive the game once booted. */
 export interface GameHandle {
-	/** Begin a run with the chosen character (called from the start screen). */
-	start(variant: PlayerVariant, seed?: number): void;
+	/** Begin a run with the chosen character (called from the start screen).
+	 * `startLevel` (debug) jumps straight to a level index; defaults to 0. */
+	start(variant: PlayerVariant, seed?: number, startLevel?: number): void;
 	/** Restart from level 1 with the current character. */
 	restart(): void;
 	/** Resize renderer for fullscreen (CSS px). */
@@ -43,7 +44,7 @@ export async function bootGame(
 	const game = new Game(app, onHud);
 
 	return {
-		start: (variant, seed) => game.start(variant, seed),
+		start: (variant, seed, startLevel) => game.start(variant, seed, startLevel),
 		restart: () => game.restart(),
 		resize: (w, h) => game.resize(w, h),
 		resetView: () => game.resetView(),

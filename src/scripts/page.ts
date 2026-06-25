@@ -10,6 +10,7 @@
 import { Application } from "pixi.js";
 import { drawPlayer, type PlayerVariant } from "../game/art";
 import { bootGame, CHARACTERS, type HudState } from "../game/caticorn";
+import { buildLevels } from "../game/levels";
 import { EN } from "../game/strings/en";
 
 const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
@@ -245,6 +246,10 @@ function select(variant: PlayerVariant) {
 // Start on the first character with the highlight ring already shown.
 select(CHARACTERS[0].id);
 
+/** When set (debug level-select), the run uses this fixed seed + start level so
+ * the chosen level index maps to a stable, known theme. */
+let debugStartLevel: number | null = null;
+
 function beginRun() {
 	if (!chosen) return;
 	runSummary.classList.add("hidden");
@@ -261,13 +266,49 @@ function beginRun() {
 			/* unsupported (iOS Safari) — fall back to the 80vh canvas */
 		});
 	}
-	// Fresh seed per run so cave layouts differ each playthrough. Chosen in
-	// the DOM (random allowed here) and handed to the deterministic generator.
-	game.start(chosen, Math.floor(Math.random() * 1e9) + 1);
+	if (debugStartLevel !== null) {
+		// Debug: deterministic seed so the picked level index is the labelled
+		// theme, and jump straight to it.
+		game.start(chosen, DEBUG_SEED, debugStartLevel);
+	} else {
+		// Fresh seed per run so cave layouts differ each playthrough. Chosen in
+		// the DOM (random allowed here) and handed to the deterministic generator.
+		game.start(chosen, Math.floor(Math.random() * 1e9) + 1);
+	}
 	stage.focus();
 }
 
 startBtn.addEventListener("click", beginRun);
+
+// --- Debug level select (only with ?debug=true) ---
+// Fixed seed so the level index maps to a known, stable theme set; buttons jump
+// straight to a level for quick testing. Defaults the hero to the first one so a
+// pick can run without choosing a card.
+const DEBUG_SEED = 1000;
+if (new URLSearchParams(location.search).get("debug") === "true") {
+	const panel = document.createElement("div");
+	panel.className =
+		"mt-3 flex w-full max-w-md flex-wrap items-center justify-center gap-1.5 rounded-2xl bg-rose-950/40 px-3 py-2 text-xs ring-1 ring-rose-400/30";
+	const label = document.createElement("span");
+	label.className = "w-full text-center font-bold text-rose-200";
+	label.textContent = "🐛 debug — jump to level";
+	panel.appendChild(label);
+	const levels = buildLevels(DEBUG_SEED);
+	levels.forEach((lvl, i) => {
+		const b = document.createElement("button");
+		b.type = "button";
+		b.className =
+			"rounded-lg bg-rose-400/20 px-2.5 py-1 font-semibold text-rose-100 hover:bg-rose-400/40";
+		b.textContent = `${i + 1}. ${EN.levels[lvl.name] ?? lvl.name}`;
+		b.addEventListener("click", () => {
+			if (!chosen) chosen = CHARACTERS[0].id;
+			debugStartLevel = i;
+			beginRun();
+		});
+		panel.appendChild(b);
+	});
+	startScreen.appendChild(panel);
+}
 
 // Keyboard navigation on the start screen: arrows move the selection ring,
 // space / enter begins the run. Only active while the start screen is shown.

@@ -205,11 +205,12 @@ export class Game {
 	 * Begin a fresh run with the chosen character. An optional seed regenerates
 	 * the level layouts so each playthrough differs; omit for the default layout.
 	 */
-	start(variant: PlayerVariant, seed?: number): void {
+	start(variant: PlayerVariant, seed?: number, startLevel = 0): void {
 		this.variant = variant;
 		this.audio.resume();
 		if (seed !== undefined) this.levels = buildLevels(seed);
-		this.levelIndex = 0;
+		// Debug: allow jumping straight to a level (clamped to the valid range).
+		this.levelIndex = Math.max(0, Math.min(startLevel, this.levels.length - 1));
 		this.state.health = START_HEALTH;
 		this.state.totalRescued = 0;
 		this.state.score = 0;
@@ -229,7 +230,7 @@ export class Game {
 		// Clear any keys held from the start screen (e.g. the Space/Enter that
 		// began the run) so the player doesn't jump on the first frame.
 		this.keys.clear();
-		this.loadLevel(0);
+		this.loadLevel(this.levelIndex);
 		this.started = true;
 	}
 
