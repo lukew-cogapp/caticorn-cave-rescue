@@ -44,6 +44,10 @@ export const EN = {
 	/** Win / lose overlay. */
 	wonTitle: "All caticorns saved!",
 	wonSub: "You cleared every cave. Hero of the realm.",
+	/** Flawless-run badge shown on the win screen when all four feats hold. */
+	flawlessTitle: "✨ FLAWLESS RESCUE ✨",
+	flawlessSub:
+		"Untouched, peaceful, sure-footed and clean. A perfect run, you absolute legend.",
 	lostTitle: "Out of lives",
 	lostSub: (rescued: number) => `You rescued ${rescued} this run. Try again?`,
 	playAgain: "Play again",

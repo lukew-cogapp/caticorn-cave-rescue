@@ -25,6 +25,7 @@ import type { Player } from "../entities/Player";
 import type { Particles } from "../systems/Particles";
 import type { ScreenShake } from "../systems/ScreenShake";
 import {
+	type FlawlessFlags,
 	type Rect,
 	rectsOverlap,
 	TRAMPOLINE_VELOCITY,
@@ -50,6 +51,12 @@ export interface CollisionState {
 	waypointTimer: number;
 	/** Countdown to the next exit-beckon sparkle pulse (dt-driven, unlocked only). */
 	beckonTimer: number;
+	/**
+	 * Run-long "flawless" flags, each true until the player does the bad thing
+	 * once. All four still true at the win screen earns the flawless badge. Never
+	 * reset per level (a flawless run spans the whole playthrough).
+	 */
+	flawless: FlawlessFlags;
 }
 
 /** Read-only collaborators + callbacks the collision pass needs. */
@@ -131,6 +138,7 @@ export function resolveCollisions(
 	for (const poop of deps.poops) {
 		if (rectsOverlap(pBox, poop.box)) {
 			state.poopTimer = POOP_LINGER;
+			state.flawless.noPoop = false;
 			break;
 		}
 	}
@@ -156,6 +164,7 @@ export function resolveCollisions(
 		const stomp = player.velY > 0 && playerBottom <= mBox.y + STOMP_TOLERANCE;
 		if (stomp) {
 			m.kill();
+			state.flawless.noKills = false;
 			state.score += 1;
 			player.bounce(STOMP_BOUNCE);
 			particles.burst(m.pos.x, m.pos.y - mBox.h / 2, "puff", 8);

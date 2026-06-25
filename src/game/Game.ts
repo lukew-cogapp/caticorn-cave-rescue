@@ -110,6 +110,7 @@ export class Game {
 		health: START_HEALTH,
 		waypointTimer: 0,
 		beckonTimer: 0,
+		flawless: { noDamage: true, noKills: true, noFalls: true, noPoop: true },
 	};
 	/** Elapsed run time in seconds, accumulated while playing. */
 	private elapsed = 0;
@@ -213,6 +214,12 @@ export class Game {
 		this.state.totalRescued = 0;
 		this.state.score = 0;
 		this.state.songStep = 0;
+		this.state.flawless = {
+			noDamage: true,
+			noKills: true,
+			noFalls: true,
+			noPoop: true,
+		};
 		this.elapsed = 0;
 		this.accumulator = 0;
 		this.glowPhase = 0;
@@ -448,6 +455,7 @@ export class Game {
 						this.player.slamDown();
 						this.state.poopTimer = POOP_LINGER;
 						this.state.health -= POOP_DAMAGE;
+						this.state.flawless.noDamage = false;
 						this.emitHud();
 						this.particles.burst(x, y, "dust", 5);
 						if (this.state.health <= 0) this.beginDeath(true);
@@ -480,6 +488,7 @@ export class Game {
 
 		// Fell into a pit (always a ghost death, even while invulnerable).
 		if (this.player.fellOffWorld()) {
+			this.state.flawless.noFalls = false;
 			this.beginDeath();
 			return;
 		}
@@ -564,6 +573,7 @@ export class Game {
 	 */
 	private takeHit(amount: number): boolean {
 		this.state.health -= amount;
+		this.state.flawless.noDamage = false;
 		this.emitHud();
 		if (this.state.health <= 0) {
 			this.beginDeath(true);
@@ -660,6 +670,7 @@ export class Game {
 			totalRescued: this.state.totalRescued,
 			elapsed: this.elapsed,
 			score: this.state.score,
+			flawless: { ...this.state.flawless },
 		});
 	}
 }

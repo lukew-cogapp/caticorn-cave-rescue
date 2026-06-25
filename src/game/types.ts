@@ -144,6 +144,19 @@ export interface HudState {
 	elapsed: number;
 	/** Run score (rescues + stomps + flutes), shown live in the DOM HUD bar. */
 	score: number;
+	/**
+	 * Run-long flawless flags (no damage / no kills / no falls / no poo). All true
+	 * at a win earns the flawless badge on the end screen.
+	 */
+	flawless: FlawlessFlags;
+}
+
+/** The four conditions for a flawless run; each flips false on its first lapse. */
+export interface FlawlessFlags {
+	noDamage: boolean;
+	noKills: boolean;
+	noFalls: boolean;
+	noPoop: boolean;
 }
 
 export type HudCallback = (state: HudState) => void;
