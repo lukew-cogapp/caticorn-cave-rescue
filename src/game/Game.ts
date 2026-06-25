@@ -49,6 +49,8 @@ const STOMP_BOUNCE = -380;
 const FREEZE_STOMP = 0.06;
 /** Hit-stop freeze on death (s) — longer for weight. */
 const FREEZE_DEATH = 0.12;
+/** Invulnerability window after a monster hit, in seconds. */
+const INVULN_TIME = 1;
 /**
  * How far the player's feet may sit below a monster's top and still count as a
  * stomp rather than a side hit, in pixels.
@@ -64,7 +66,8 @@ const STOMP_TOLERANCE = 14;
 export class Game {
 	private readonly app: Application;
 	private readonly onHud: HudCallback;
-	private readonly levels: Level[];
+	/** Rebuilt per run with a fresh seed so layouts vary each playthrough. */
+	private levels: Level[];
 	private readonly audio = new Chiptune();
 
 	/** Scrolling world container (camera moves this). */
@@ -96,6 +99,8 @@ export class Game {
 	private poopTimer = 0;
 	/** Hit-stop: while > 0, the sim is frozen (particles/shake still animate). */
 	private freezeTimer = 0;
+	/** Invulnerability after a monster hit (s); player blinks and ignores damage. */
+	private invulnTimer = 0;
 	/** Poop falling from a lurker: sprite + vertical velocity, lands into a poop. */
 	private fallingPoops: { view: Container; vy: number; x: number }[] = [];
 	private status: GameStatus = "playing";
@@ -165,10 +170,14 @@ export class Game {
 		this.app.ticker.add(this.tick);
 	}
 
-	/** Begin a fresh run with the chosen character. */
-	start(variant: PlayerVariant): void {
+	/**
+	 * Begin a fresh run with the chosen character. An optional seed regenerates
+	 * the level layouts so each playthrough differs; omit for the default layout.
+	 */
+	start(variant: PlayerVariant, seed?: number): void {
 		this.variant = variant;
 		this.audio.resume();
+		if (seed !== undefined) this.levels = buildLevels(seed);
 		this.levelIndex = 0;
 		this.lives = START_LIVES;
 		this.totalRescued = 0;
@@ -229,6 +238,7 @@ export class Game {
 		this.shake.reset();
 		this.poopTimer = 0;
 		this.freezeTimer = 0;
+		this.invulnTimer = 0;
 		this.fallingPoops = [];
 
 		// Background gradient + cave mood.
@@ -428,7 +438,14 @@ export class Game {
 		}
 		this.updateFallingPoops(dt);
 
-		// Fell into a pit.
+		// Invulnerability after a hit: count down and blink the player.
+		if (this.invulnTimer > 0) {
+			this.invulnTimer -= dt;
+			this.player.view.alpha = Math.sin(this.invulnTimer * 30) > 0 ? 0.35 : 1;
+			if (this.invulnTimer <= 0) this.player.view.alpha = 1;
+		}
+
+		// Fell into a pit (always a ghost death, even while invulnerable).
 		if (this.player.fellOffWorld()) {
 			this.beginDeath();
 			return;
@@ -487,7 +504,7 @@ export class Game {
 
 		// Hit a monster. Dead monsters are inert (skipped); so are non-lethal ones
 		// (e.g. the overhead lurker). A live lethal monster is a stomp if the
-		// player is falling onto its head, else it kills the player.
+		// player is falling onto its head, else it's a hit (unless invulnerable).
 		for (const m of this.monsters) {
 			if (m.isDead() || !m.isLethal()) continue;
 			const mBox = m.aabb();
@@ -504,17 +521,18 @@ export class Game {
 				this.freezeTimer = FREEZE_STOMP;
 				this.audio.rescue();
 				this.emitHud();
-			} else {
-				this.beginDeath();
-				return;
+			} else if (this.invulnTimer <= 0) {
+				if (this.hitByMonster()) return; // returns true if that was the last life
 			}
 		}
 
-		// Impaled on a spike.
-		for (const spike of this.spikes) {
-			if (rectsOverlap(pBox, spike)) {
-				this.beginDeath();
-				return;
+		// Impaled on a spike: a hit, not an instant ghost-death.
+		if (this.invulnTimer <= 0) {
+			for (const spike of this.spikes) {
+				if (rectsOverlap(pBox, spike)) {
+					if (this.hitByMonster()) return;
+					break;
+				}
 			}
 		}
 
@@ -594,6 +612,32 @@ export class Game {
 
 	// --- Death / lives ---
 
+	/**
+	 * Take a hit from a monster/spike: lose a life in place (no ghost, no
+	 * respawn) and gain a brief invulnerability window. If that was the last
+	 * life, fall through to the ghost death + game over.
+	 *
+	 * @returns true if the run ended (caller should stop this frame's update).
+	 */
+	private hitByMonster(): boolean {
+		this.lives -= 1;
+		this.emitHud();
+		if (this.lives <= 0) {
+			this.beginDeath();
+			return true;
+		}
+		this.audio.hurt();
+		this.shake.add(4);
+		this.freezeTimer = FREEZE_STOMP;
+		this.invulnTimer = INVULN_TIME;
+		return false;
+	}
+
+	/**
+	 * Ghost death: used when falling down a hole or losing the last life. Plays
+	 * the floating-ghost animation, then respawns at the level start (hole) or
+	 * ends the run (out of lives) in updateDeath().
+	 */
 	private beginDeath(): void {
 		this.audio.hurt();
 		this.shake.add(7);

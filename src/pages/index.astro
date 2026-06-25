@@ -299,7 +299,9 @@ import { EN } from "../game/strings/en";
 		runSummary.classList.add("hidden");
 		startScreen.classList.add("hidden");
 		startScreen.classList.remove("flex");
-		game.start(chosen);
+		// Fresh seed per run so cave layouts differ each playthrough. Chosen in
+		// the DOM (random allowed here) and handed to the deterministic generator.
+		game.start(chosen, Math.floor(Math.random() * 1e9) + 1);
 		stage.focus();
 	}
 

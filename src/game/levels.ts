@@ -94,8 +94,11 @@ function makeRng(seed: number): () => number {
  * Every level is run through {@link ensureSolvable} during generation, which
  * asserts (and, where needed, nudges) the layout so it is provably reachable
  * under the documented physics budget before being returned.
+ *
+ * @param baseSeed Seed for the deterministic layout PRNG. Pass a fresh value per
+ *   run for varied layouts; omit (default) for a stable layout (used by tests).
  */
-export function buildLevels(): Level[] {
+export function buildLevels(baseSeed = 1000): Level[] {
 	const configs: LevelConfig[] = [
 		{
 			name: "The Shallows",
@@ -131,7 +134,7 @@ export function buildLevels(): Level[] {
 		},
 	];
 
-	return configs.map((c, i) => makeLevel(c, i));
+	return configs.map((c, i) => makeLevel(c, i, baseSeed));
 }
 
 /** Max horizontal distance a single jump covers at the given speed. */
@@ -171,8 +174,8 @@ function platformDrop(style: LevelConfig["style"], i: number): number {
  * Build one level: lay out rescue platforms and ground, then place hazards and
  * decor under fairness rules, then assert/repair reachability.
  */
-function makeLevel(c: LevelConfig, index: number): Level {
-	const rng = makeRng(1000 + index * 97);
+function makeLevel(c: LevelConfig, index: number, baseSeed: number): Level {
+	const rng = makeRng(baseSeed + index * 97);
 
 	// Horizontal spacing between rescue platforms is capped so the run between
 	// them is comfortable and the pit beneath each fits the jump budget.
