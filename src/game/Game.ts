@@ -33,6 +33,8 @@ import {
 const DEATH_ANIM_TIME = 1.1;
 /** Horizontal velocity multiplier while standing on a poop. */
 const POOP_SLOW = 0.35;
+/** Seconds the poop slow + brown feet linger after leaving the poop. */
+const POOP_LINGER = 1;
 /** Collision box (centred on poop's bottom-centre) used for the slow zone. */
 const POOP_BOX = { halfWidth: 14, height: 22 };
 
@@ -96,6 +98,8 @@ export class Game {
 	private totalRescued = 0;
 	/** Elapsed run time in seconds, accumulated while playing. */
 	private elapsed = 0;
+	/** Remaining seconds of poop slow/stuck effect (lingers after leaving). */
+	private poopTimer = 0;
 	private status: GameStatus = "playing";
 	/** False until start() loads the first level; gates the simulation loop. */
 	private started = false;
@@ -222,6 +226,7 @@ export class Game {
 		// just drop the references (their GPU resources go with the cleared world).
 		this.particles = [];
 		this.shakeMag = 0;
+		this.poopTimer = 0;
 
 		// Background gradient + cave mood.
 		this.world.addChild(drawBackground(this.level.worldWidth, this.level.bg));
@@ -387,27 +392,38 @@ export class Game {
 			}
 		}
 
-		// Hard landing: a fast touchdown kicks up dust and rattles the camera,
-		// scaled by impact speed. justLanded is set fresh by player.update().
+		// Hard landing: a fast touchdown kicks up dust. The camera "ground pound"
+		// shake is reserved for double-jump landings, so an ordinary jump never
+		// rattles the screen.
 		if (
 			this.player.justLanded &&
 			this.player.landImpactSpeed > HARD_LAND_SPEED
 		) {
-			const t = Math.min(1, this.player.landImpactSpeed / 1400);
 			this.spawnBurst(this.player.pos.x, this.player.pos.y, "dust", 6);
-			this.shake(2 + t * 3);
+			if (this.player.landedFromDoubleJump) {
+				const t = Math.min(1, this.player.landImpactSpeed / 1400);
+				this.shake(2 + t * 3);
+			}
 		}
 
-		// Poop slow-zone: standing on a poop drags the player's speed down.
-		// Undo most of this frame's horizontal gain and damp velocity so the
-		// slowdown is felt immediately and persists while overlapping.
+		// Poop: stepping on one (re)starts a lingering effect that keeps the
+		// player slowed, brown-footed and unable to jump for POOP_LINGER seconds
+		// after they leave it.
 		for (const poop of this.poops) {
 			if (rectsOverlap(pBox, poop)) {
-				this.player.pos.x -= this.player.vel.x * dt * (1 - POOP_SLOW);
-				this.player.vel.x *= POOP_SLOW;
-				this.player.view.x = this.player.pos.x;
+				this.poopTimer = POOP_LINGER;
 				break;
 			}
+		}
+		if (this.poopTimer > 0) {
+			this.poopTimer -= dt;
+			this.player.setPoopAffected(true);
+			// Drag the player's speed down while the effect lasts.
+			this.player.pos.x -= this.player.vel.x * dt * (1 - POOP_SLOW);
+			this.player.vel.x *= POOP_SLOW;
+			this.player.view.x = this.player.pos.x;
+		} else {
+			this.player.setPoopAffected(false);
 		}
 
 		// Hit a monster. Dead monsters are inert (skipped). A live monster is a

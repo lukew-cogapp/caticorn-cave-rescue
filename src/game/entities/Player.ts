@@ -1,3 +1,4 @@
+import { Graphics } from "pixi.js";
 import { drawPlayer, type PlayerVariant } from "../art";
 import {
 	GAME_HEIGHT,
@@ -45,6 +46,16 @@ export class Player extends Entity {
 	justLanded = false;
 	/** Downward speed at the moment of the last landing (for shake/dust scale). */
 	landImpactSpeed = 0;
+	/** Whether the just-completed airtime included a double (air) jump. Lets the
+	 * Game restrict the landing shake to double jumps / big falls only. */
+	landedFromDoubleJump = false;
+	/** Tracks whether the current airtime has used the second (air) jump. */
+	private doubleJumpedThisAir = false;
+
+	/** True while the poop effect is active (slowed, brown feet, no jumping). */
+	private poopAffected = false;
+	/** Brown overlay drawn over the feet while poop-affected (lazy-created). */
+	private poopFeet: Graphics | null = null;
 
 	/** Build a Player with its own art so callers don't import art helpers. */
 	static create(spawn: Vec2, variant: PlayerVariant): Player {
@@ -80,11 +91,20 @@ export class Player extends Entity {
 		// key does nothing until released and pressed again.
 		const jumpPressed = jump && !this.jumpHeld;
 		const wasOnGround = this.onGround;
-		if (this.onGround) this.jumpsUsed = 0;
-		if (jumpPressed && this.jumpsUsed < Player.MAX_JUMPS) {
+		if (this.onGround) {
+			this.jumpsUsed = 0;
+			this.doubleJumpedThisAir = false;
+		}
+		// Poop-stuck feet can't jump (ground or air) until the effect wears off.
+		if (
+			jumpPressed &&
+			!this.poopAffected &&
+			this.jumpsUsed < Player.MAX_JUMPS
+		) {
 			this.vel.y = JUMP_VELOCITY;
 			this.onGround = false;
 			this.jumpsUsed += 1;
+			if (this.jumpsUsed >= 2) this.doubleJumpedThisAir = true;
 			this.squash = 0.5; // pop tall on take-off
 		}
 		this.jumpHeld = jump;
@@ -133,6 +153,7 @@ export class Player extends Entity {
 		if (this.onGround && !wasOnGround && impact > 60) {
 			this.justLanded = true;
 			this.landImpactSpeed = impact;
+			this.landedFromDoubleJump = this.doubleJumpedThisAir;
 			this.squash = -Math.min(0.45, impact / 1400);
 		}
 
@@ -175,5 +196,26 @@ export class Player extends Entity {
 	/** True once the player has fallen entirely below the world. */
 	fellOffWorld(): boolean {
 		return this.pos.y - this.height > GAME_HEIGHT;
+	}
+
+	/**
+	 * Toggle the poop effect: while active the player can't jump (handled in
+	 * update) and a brown smear is drawn over the feet. The Game keeps this on
+	 * for a second after the player leaves the poop.
+	 */
+	setPoopAffected(active: boolean): void {
+		if (active === this.poopAffected) return;
+		this.poopAffected = active;
+		if (active) {
+			if (!this.poopFeet) {
+				this.poopFeet = new Graphics()
+					.ellipse(-7, -1, 5, 3)
+					.ellipse(7, -1, 5, 3)
+					.fill("#6b4423");
+			}
+			this.view.addChild(this.poopFeet);
+		} else if (this.poopFeet) {
+			this.view.removeChild(this.poopFeet);
+		}
 	}
 }

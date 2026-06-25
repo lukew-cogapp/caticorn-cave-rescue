@@ -267,19 +267,20 @@ export function drawPlayer(variant: PlayerVariant): Container {
 }
 
 /**
- * Build a rescuable caticorn in a teal/cyan palette with pink accents and a
- * sad, pleading expression so it reads as trapped. Faces right, bottom-centre
- * origin.
+ * Build a rescuable caticorn in a teal/cyan palette with pink accents. Trapped
+ * (`happy` false) wears a sad, pleading expression; once rescued (`happy` true)
+ * it beams. Faces right, bottom-centre origin.
  *
+ * @param happy - Draw the cheerful rescued face instead of the trapped one.
  * @returns A Pixi {@link Container} ready to position at a world point.
  */
-export function drawCaticorn(): Container {
+export function drawCaticorn(happy = false): Container {
 	return buildCaticorn({
 		body: "#5ad1c8",
 		bodyDark: "#39a8a0",
 		ear: "#5ad1c8",
 		mane: ["#ff9ec4", "#c8f5ff", "#ff5d8f"],
-		sad: true,
+		sad: !happy,
 	});
 }
 

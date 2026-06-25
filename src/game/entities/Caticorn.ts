@@ -7,8 +7,8 @@ import { Entity } from "./Entity";
 const BOB_AMPLITUDE = 4;
 /** Bob angular speed in radians/sec. */
 const BOB_SPEED = 2.5;
-/** Upward drift speed once rescued, in px/sec. */
-const RESCUE_FLOAT_SPEED = 8;
+/** Upward drift speed once rescued, in px/sec (cheerful escape). */
+const RESCUE_FLOAT_SPEED = 70;
 
 /**
  * A captured caticorn waiting to be rescued. Idle-bobs in place while captive;
@@ -49,13 +49,21 @@ export class Caticorn extends Entity {
 		this.syncView();
 	}
 
-	/** Mark as rescued: dim the sprite and nudge it up. Idempotent. */
+	/**
+	 * Mark as rescued: swap the sad trapped face for a happy one and start
+	 * floating up quickly. Idempotent.
+	 */
 	rescue(): void {
 		if (this.rescued) {
 			return;
 		}
 		this.rescued = true;
-		this.view.alpha = 0.4;
+		// Swap to the cheerful rescued sprite by replacing the view's contents.
+		for (const child of this.view.removeChildren()) {
+			child.destroy();
+		}
+		const happy = drawCaticorn(true);
+		this.view.addChild(...happy.removeChildren());
 		this.pos.y -= 12;
 		this.baseY -= 12;
 	}
