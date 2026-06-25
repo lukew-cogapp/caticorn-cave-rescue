@@ -32,31 +32,31 @@ import { EN } from "../game/strings/en";
 			<!-- Start screen: title + character select -->
 			<div
 				id="start-screen"
-				class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gradient-to-b from-indigo-950/95 to-purple-950/95 px-4 text-center text-amber-50 backdrop-blur-sm"
+				class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 overflow-y-auto bg-gradient-to-b from-indigo-950/95 to-purple-950/95 px-4 py-4 text-center text-amber-50 backdrop-blur-sm"
 			>
 				<canvas
 					id="hero-sprite"
 					width="96"
 					height="96"
-					class="h-20 w-20 drop-shadow-lg"
+					class="hidden h-16 w-16 drop-shadow-lg sm:block"
 					aria-hidden="true"></canvas>
-				<h2 class="mt-2 text-2xl font-extrabold tracking-tight sm:text-4xl">
+				<h2 class="text-xl font-extrabold tracking-tight sm:text-4xl">
 					{EN.title}
 				</h2>
-				<p class="mt-1 text-sm text-indigo-200 sm:text-base">
+				<p class="text-xs text-indigo-200 sm:text-base">
 					{EN.chooseHero}
 				</p>
 
 				<!-- Run summary shown after a game over (hidden otherwise). -->
 				<p
 					id="run-summary"
-					class="mt-3 hidden rounded-xl bg-amber-400/15 px-4 py-2 text-sm font-semibold text-amber-200"
+					class="hidden rounded-xl bg-amber-400/15 px-4 py-2 text-sm font-semibold text-amber-200"
 				>
 				</p>
 
 				<div
 					id="char-cards"
-					class="mt-5 flex flex-wrap items-stretch justify-center gap-4"
+					class="flex flex-wrap items-stretch justify-center gap-3"
 				>
 					<!-- Cards injected by script (one per CHARACTERS entry). -->
 				</div>
@@ -65,11 +65,16 @@ import { EN } from "../game/strings/en";
 					id="start-btn"
 					type="button"
 					disabled
-					class="mt-6 rounded-full bg-amber-400 px-8 py-3 text-lg font-extrabold text-stone-900 shadow-lg transition enabled:hover:scale-105 enabled:hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+					class="rounded-full bg-amber-400 px-8 py-2.5 text-lg font-extrabold text-stone-900 shadow-lg transition enabled:hover:scale-105 enabled:hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
 				>
 					{EN.startButton}
 				</button>
-				<p class="mt-3 text-xs text-indigo-300">{EN.controlsHint}</p>
+				<div class="max-w-lg space-y-0.5 text-xs text-indigo-300">
+					<p>{EN.controlsHint}</p>
+					<p>{EN.instructionsGoal}</p>
+					<p>{EN.instructionsHazards}</p>
+					<p class="hidden sm:block">{EN.instructionsExtras}</p>
+				</div>
 			</div>
 
 			<!-- Fullscreen toggle (bottom-right so it never covers the HUD bar) -->
@@ -245,18 +250,18 @@ import { EN } from "../game/strings/en";
 		card.type = "button";
 		card.dataset.variant = c.id;
 		card.className =
-			"group flex w-32 flex-col items-center gap-2 rounded-2xl border-2 border-white/15 bg-white/5 p-4 transition hover:border-white/40 hover:bg-white/10";
+			"group flex w-24 flex-col items-center gap-1 rounded-2xl border-2 border-white/15 bg-white/5 p-2 transition hover:border-white/40 hover:bg-white/10 sm:w-36 sm:gap-2 sm:p-3";
 
-		// Live Pixi sprite preview of the character.
+		// Live Pixi sprite preview of the character, drawn ~2x larger than before.
 		const preview = document.createElement("canvas");
-		preview.width = 96;
-		preview.height = 96;
-		preview.className = "h-24 w-24";
+		preview.width = 180;
+		preview.height = 180;
+		preview.className = "h-20 w-20 sm:h-32 sm:w-32";
 		card.appendChild(preview);
 
 		const name = document.createElement("span");
 		name.textContent = c.name;
-		name.className = "text-lg font-bold";
+		name.className = "text-base font-bold sm:text-lg";
 		name.style.color = c.color;
 		card.appendChild(name);
 
@@ -264,18 +269,22 @@ import { EN } from "../game/strings/en";
 		cardsWrap.appendChild(card);
 		cardEls.set(c.id, card);
 
-		// Render the caticorn into the preview canvas with a tiny Pixi app.
+		// Render the caticorn into the preview canvas with a tiny Pixi app. The
+		// sprite is scaled up so the hero reads big on the select screen.
 		const app = new Application();
 		await app.init({
 			canvas: preview,
-			width: 96,
-			height: 96,
+			width: 180,
+			height: 180,
 			backgroundAlpha: 0,
 			antialias: true,
+			resolution: 2,
+			autoDensity: true,
 		});
 		const sprite = drawPlayer(c.id);
-		sprite.x = 48;
-		sprite.y = 86; // bottom-centre origin sits near the bottom
+		sprite.scale.set(2);
+		sprite.x = 90;
+		sprite.y = 168; // bottom-centre origin sits near the bottom
 		app.stage.addChild(sprite);
 	}
 

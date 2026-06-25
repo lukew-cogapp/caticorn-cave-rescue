@@ -12,7 +12,14 @@ export const EN = {
 	/** Start / character-select screen. */
 	chooseHero: "Choose your hero",
 	startButton: "Start rescue",
-	controlsHint: "Move: Arrow keys / WASD  ·  Jump: Up / Space / W",
+	controlsHint:
+		"Move: Arrow keys / WASD  ·  Jump (double-jump): Up / Space / W  ·  Pause: P",
+	instructionsGoal:
+		"Free every caticorn (stomp cages, touch shackled ones), then reach the glowing exit.",
+	instructionsHazards:
+		"Dodge baddies (or stomp them), mind the pits, lethal ceiling spikes, and falling poop.",
+	instructionsExtras:
+		"Bounce on trampolines, grab flutes to heal, and clear all caves to win.",
 
 	/** In-canvas HUD. */
 	hudRescued: (rescued: number, total: number) => `Rescued ${rescued}/${total}`,

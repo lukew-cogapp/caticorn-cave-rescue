@@ -250,6 +250,7 @@ export class Game {
 		this.health = START_HEALTH;
 		this.totalRescued = 0;
 		this.score = 0;
+		this.songStep = 0;
 		this.elapsed = 0;
 		this.paused = false;
 		this.pauseOverlay.visible = false;
@@ -309,7 +310,6 @@ export class Game {
 		this.poopTimer = 0;
 		this.freezeTimer = 0;
 		this.invulnTimer = 0;
-		this.songStep = 0;
 		this.fallingPoops = [];
 
 		// Background gradient + cave mood, then ambient fireflies in front of it
@@ -674,15 +674,15 @@ export class Game {
 				this.audio.rescue(this.songStep++);
 				this.emitHud();
 			} else if (this.invulnTimer <= 0) {
-				if (this.hitByMonster()) return; // returns true if that was the last life
+				if (this.takeHit(HIT_DAMAGE)) return; // true if that drained the last health
 			}
 		}
 
-		// Impaled on a spike: a hit, not an instant ghost-death.
+		// Impaled on a ceiling spike: a heavier hit (1/3), not an instant death.
 		if (this.invulnTimer <= 0) {
 			for (const spike of this.spikes) {
 				if (rectsOverlap(pBox, spike)) {
-					if (this.hitByMonster()) return;
+					if (this.takeHit(FALL_DAMAGE)) return;
 					break;
 				}
 			}
@@ -711,7 +711,8 @@ export class Game {
 					"note",
 					6,
 				);
-				this.audio.rescue();
+				// Flutes also advance the run-long rising tune.
+				this.audio.rescue(this.songStep++);
 				this.emitHud();
 			}
 		}
@@ -768,14 +769,14 @@ export class Game {
 	// --- Damage / death ---
 
 	/**
-	 * Take a monster/spike hit: lose HIT_DAMAGE health in place (no ghost, no
-	 * respawn) with a brief invulnerability window. If health runs out, fall
-	 * through to the ghost death + game over.
+	 * Take a hit for `amount` health in place (no ghost, no respawn) with a brief
+	 * invulnerability window. If health runs out, fall through to the ghost death
+	 * + game over.
 	 *
 	 * @returns true if the run ended (caller should stop this frame's update).
 	 */
-	private hitByMonster(): boolean {
-		this.health -= HIT_DAMAGE;
+	private takeHit(amount: number): boolean {
+		this.health -= amount;
 		this.emitHud();
 		if (this.health <= 0) {
 			this.beginDeath(true);
