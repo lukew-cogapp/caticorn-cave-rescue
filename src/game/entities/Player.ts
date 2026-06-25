@@ -7,6 +7,7 @@ import {
 	COYOTE_TIME,
 	FALL_GRAVITY,
 	FRICTION,
+	GROVE_BOUNCE_DECAY,
 	IDLE_BREATH_AMPLITUDE,
 	IDLE_BREATH_SPEED,
 	IDLE_SPEED_THRESHOLD,
@@ -212,9 +213,11 @@ export class Player extends Entity {
 		// Grove bouncy ground: landing on the ground floor in a grove cave gives a
 		// small springy hop. Only fires on ground-level (not raised platforms), only
 		// with enough downward speed, and only when not poop-affected (can't jump).
-		// The velocity is much weaker than a trampoline, so it cannot fling the
-		// player into ceiling spikes, and the solver's gap/height invariants stay
-		// unaffected (GROVE_BOUNCE_VELOCITY < |JUMP_VELOCITY| / 2).
+		// The bounce is a FRACTION of the impact speed (capped at the configured
+		// velocity), so each successive hop returns slower and the bounce DECAYS to
+		// rest within a couple of hops rather than self-sustaining — the floor still
+		// feels springy but the player can stand still. Capped well under a jump, so
+		// it can't fling into ceiling spikes and the reachability budget is intact.
 		if (
 			mechanic?.groundBounceVelocity !== undefined &&
 			landedOnGround &&
@@ -222,7 +225,8 @@ export class Player extends Entity {
 			impact >= (mechanic.groundBounceMinSpeed ?? 0) &&
 			!this.poopAffected
 		) {
-			this.vel.y = mechanic.groundBounceVelocity;
+			const cap = Math.abs(mechanic.groundBounceVelocity);
+			this.vel.y = -Math.min(cap, impact * GROVE_BOUNCE_DECAY);
 			this.onGround = false;
 			this.cuttable = false;
 		}

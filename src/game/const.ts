@@ -35,9 +35,18 @@ export const GROVE_BOUNCE_VELOCITY = -110;
 
 /**
  * Minimum downward speed (px/sec) required for the grove ground bounce to
- * trigger. Prevents a tiny float-in from spawning an unwanted hop.
+ * trigger. Set above the decayed steady-state return speed so the bounce dies
+ * out (a hop returns slower each time and eventually falls under this) instead
+ * of self-sustaining; also stops a tiny float-in spawning an unwanted hop.
  */
 export const GROVE_BOUNCE_MIN_SPEED = 80;
+
+/**
+ * Fraction of landing impact speed converted into the next grove bounce (capped
+ * at {@link GROVE_BOUNCE_VELOCITY}). Below ~0.7 the bounce decays to rest within
+ * a couple of hops, so the floor feels springy but the player can stand still.
+ */
+export const GROVE_BOUNCE_DECAY = 0.45;
 
 /**
  * Probability (0..1) of placing a stalactite spike at each ceiling candidate

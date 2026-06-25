@@ -38,7 +38,8 @@ const runSummary = document.getElementById(
 const hudBar = document.getElementById("hud-bar") as HTMLDivElement;
 const hudLevel = document.getElementById("hud-level") as HTMLSpanElement;
 const hudRescued = document.getElementById("hud-rescued") as HTMLSpanElement;
-const hudStats = document.getElementById("hud-stats") as HTMLSpanElement;
+const hudScore = document.getElementById("hud-score") as HTMLSpanElement;
+const hudTimeVal = document.getElementById("hud-time-val") as HTMLSpanElement;
 
 /** Format seconds as m:ss. */
 function formatTime(seconds: number): string {
@@ -53,7 +54,8 @@ function renderHud(s: HudState) {
 		const name = EN.levels[s.levelName] ?? s.levelName;
 		hudLevel.textContent = EN.hudLevel(name, s.level, s.totalLevels);
 		hudRescued.textContent = EN.hudRescued(s.rescued, s.toRescue);
-		hudStats.textContent = `${EN.hudScore(s.score)}   ${formatTime(s.elapsed)}`;
+		hudScore.textContent = EN.hudScore(s.score);
+		hudTimeVal.textContent = formatTime(s.elapsed);
 		hudBar.classList.remove("hidden");
 		hudBar.classList.add("flex");
 	} else {
@@ -127,11 +129,7 @@ async function renderSpriteInto(
 	s.y = bottomY;
 	a.stage.addChild(s);
 }
-const titleCanvas = document.getElementById(
-	"title-sprite",
-) as HTMLCanvasElement;
 const heroCanvas = document.getElementById("hero-sprite") as HTMLCanvasElement;
-await renderSpriteInto(titleCanvas, "aubrey", 60);
 await renderSpriteInto(heroCanvas, "quinn", 90);
 
 // Render the game at the stage's actual pixel size so it always fills the

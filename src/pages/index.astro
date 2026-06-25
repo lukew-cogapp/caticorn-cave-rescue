@@ -10,25 +10,13 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout title={EN.title} description={EN.metaDescription}>
-	<main id="page" class="px-6 py-8">
-		<header
-			id="page-header"
-			class="mx-auto flex max-w-3xl flex-col items-center text-center"
-		>
-			<canvas
-				id="title-sprite"
-				width="64"
-				height="64"
-				class="h-12 w-12"
-				aria-hidden="true"></canvas>
-			<h1
-				class="mt-1 text-3xl font-extrabold tracking-tight text-stone-900 sm:text-4xl"
-			>
-				{EN.title}
-			</h1>
-			<p class="mt-2 text-stone-600">{EN.tagline}</p>
-		</header>
-
+	<!-- Full-viewport, non-scrolling shell. The in-canvas start screen already
+	     shows the title + "choose your hero", so the page needs no header/footer
+	     chrome; everything fits the screen with no scroll. -->
+	<main
+		id="page"
+		class="flex h-[100dvh] flex-col items-center justify-center gap-2 overflow-hidden px-4 py-3"
+	>
 		<HudBar />
 
 		<!-- Game canvas -->
@@ -60,10 +48,6 @@ import Layout from "../layouts/Layout.astro";
 
 			<TouchControls />
 		</div>
-
-		<p class="mx-auto mt-4 max-w-3xl text-center text-sm text-stone-500">
-			{EN.controlsFooter}
-		</p>
 	</main>
 
 	<!--
