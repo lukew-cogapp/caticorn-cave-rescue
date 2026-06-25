@@ -94,6 +94,8 @@ export class Game {
 	private poopTimer = 0;
 	/** Hit-stop: while > 0, the sim is frozen (particles/shake still animate). */
 	private freezeTimer = 0;
+	/** Poop falling from a lurker: sprite + vertical velocity, lands into a poop. */
+	private fallingPoops: { view: Container; vy: number; x: number }[] = [];
 	private status: GameStatus = "playing";
 	/** False until start() loads the first level; gates the simulation loop. */
 	private started = false;
@@ -224,6 +226,7 @@ export class Game {
 		this.shake.reset();
 		this.poopTimer = 0;
 		this.freezeTimer = 0;
+		this.fallingPoops = [];
 
 		// Background gradient + cave mood.
 		this.world.addChild(drawBackground(this.level.worldWidth, this.level.bg));
@@ -339,6 +342,33 @@ export class Game {
 		});
 	}
 
+	/** Spawn a poop that falls from `y` and becomes a ground hazard on landing. */
+	private spawnFallingPoop(x: number, y: number): void {
+		const g = drawPoop();
+		g.x = x;
+		g.y = y;
+		this.world.addChild(g);
+		this.fallingPoops.push({ view: g, vy: 60, x });
+	}
+
+	/** Advance falling poops; when one reaches the floor it lands as a hazard. */
+	private updateFallingPoops(dt: number): void {
+		const floorY = GAME_HEIGHT - 30;
+		for (let i = this.fallingPoops.length - 1; i >= 0; i--) {
+			const fp = this.fallingPoops[i];
+			fp.vy += 900 * dt; // gravity
+			fp.view.y += fp.vy * dt;
+			if (fp.view.y >= floorY) {
+				// Landed: remove the faller and register a ground poop hazard.
+				this.world.removeChild(fp.view);
+				fp.view.destroy({ children: true });
+				this.fallingPoops.splice(i, 1);
+				this.dropPoopAt(fp.x, floorY);
+				this.particles.burst(fp.x, floorY - 6, "dust", 5);
+			}
+		}
+	}
+
 	// --- Simulation loop ---
 
 	private readonly tick = (): void => {
@@ -387,10 +417,11 @@ export class Game {
 		for (const cat of this.caticorns) cat.update(ctx);
 		for (const m of this.monsters) {
 			m.update(ctx);
-			// Ceiling lurkers periodically drop poop onto the ground below.
+			// Ceiling lurkers periodically drop poop, which falls to the ground.
 			const dropX = m.consumeDrop();
-			if (dropX !== null) this.dropPoopAt(dropX);
+			if (dropX !== null) this.spawnFallingPoop(dropX, m.pos.y + 28);
 		}
+		this.updateFallingPoops(dt);
 
 		// Fell into a pit.
 		if (this.player.fellOffWorld()) {
