@@ -32,9 +32,9 @@ export async function bootGame(
 		canvas,
 		width: GAME_WIDTH,
 		height: GAME_HEIGHT,
-		// Match the start-screen / boot-skeleton purple so there's no colour flash
-		// before the first level paints over it.
-		background: "#2e1065",
+		// Mid-tone of the start-screen indigo→purple gradient so there's no colour
+		// flash before the skeleton/overlay or first level paints over it.
+		background: "#26134f",
 		antialias: true,
 		resolution: window.devicePixelRatio || 1,
 		autoDensity: true,

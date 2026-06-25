@@ -70,7 +70,11 @@ export class Caticorn extends Entity {
 		this.baseY = spec.y;
 
 		// Deterministic per-captive colour from the spawn position (no Math.random).
-		this.paletteIndex = Math.floor(spec.x) % CATICORN_PALETTE_COUNT;
+		// Hash the x first — raw `x % N` clusters because spawn x's are spaced by a
+		// fixed span, so they share a residue and every captive came out the same
+		// colour. A multiply-mix scatters adjacent positions across the palette.
+		const h = Math.floor(spec.x) * 2654435761;
+		this.paletteIndex = (h >>> 3) % CATICORN_PALETTE_COUNT;
 
 		this.cat = drawCaticorn(false, this.paletteIndex);
 		this.cat.scale.set(CATICORN_SCALE);
