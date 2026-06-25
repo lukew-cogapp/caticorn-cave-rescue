@@ -7,9 +7,6 @@ import {
 	COYOTE_TIME,
 	FALL_GRAVITY,
 	FRICTION,
-	GROVE_BOUNCE_MIN_SPEED,
-	GROVE_BOUNCE_VELOCITY,
-	ICE_FRICTION_SCALE,
 	IDLE_BREATH_AMPLITUDE,
 	IDLE_BREATH_SPEED,
 	IDLE_SPEED_THRESHOLD,
@@ -17,6 +14,7 @@ import {
 	JUMP_CUT,
 	MAX_JUMPS,
 } from "../const";
+import { getThemePack } from "../level/themes";
 import {
 	GAME_HEIGHT,
 	GRAVITY,
@@ -83,6 +81,8 @@ export class Player extends Entity {
 
 	update(ctx: WorldContext): void {
 		const { keys, dt, level } = ctx;
+		// Per-theme gameplay tweaks (friction / ground bounce); absent = default.
+		const mechanic = getThemePack(level.themeStyle).mechanic;
 		const left = keys.has("ArrowLeft") || keys.has("a");
 		const right = keys.has("ArrowRight") || keys.has("d");
 		const jump = keys.has("ArrowUp") || keys.has(" ") || keys.has("w");
@@ -98,7 +98,7 @@ export class Player extends Entity {
 		} else {
 			// No (or conflicting) input: decay toward zero, clamping through zero.
 			// Ice caves get a reduced friction scale so the player slides further.
-			const frictionScale = level.themeStyle === "ice" ? ICE_FRICTION_SCALE : 1;
+			const frictionScale = mechanic?.frictionScale ?? 1;
 			const decay = FRICTION * frictionScale * dt;
 			if (this.vel.x > 0) {
 				this.vel.x = Math.max(0, this.vel.x - decay);
@@ -216,13 +216,13 @@ export class Player extends Entity {
 		// player into ceiling spikes, and the solver's gap/height invariants stay
 		// unaffected (GROVE_BOUNCE_VELOCITY < |JUMP_VELOCITY| / 2).
 		if (
+			mechanic?.groundBounceVelocity !== undefined &&
 			landedOnGround &&
 			!wasOnGround &&
-			impact >= GROVE_BOUNCE_MIN_SPEED &&
-			!this.poopAffected &&
-			level.themeStyle === "grove"
+			impact >= (mechanic.groundBounceMinSpeed ?? 0) &&
+			!this.poopAffected
 		) {
-			this.vel.y = GROVE_BOUNCE_VELOCITY;
+			this.vel.y = mechanic.groundBounceVelocity;
 			this.onGround = false;
 			this.cuttable = false;
 		}

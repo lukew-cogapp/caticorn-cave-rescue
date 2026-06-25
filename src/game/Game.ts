@@ -9,7 +9,6 @@ import {
 	FREEZE_STOMP,
 	INVULN_TIME,
 	MAX_FRAME_TIME,
-	NIGHT_LIGHTING,
 	POOP_DAMAGE,
 	POOP_LINGER,
 	START_HEALTH,
@@ -32,6 +31,7 @@ import {
 } from "./game/poop";
 import { type FluteEntry, type GlowEntry, loadScene } from "./game/scene";
 import { updateWaypoints } from "./game/waypoints";
+import { getThemePack } from "./level/themes";
 import { buildLevels } from "./levels";
 import { Fireflies } from "./systems/Fireflies";
 import { HealthBar } from "./systems/HealthBar";
@@ -72,8 +72,8 @@ export class Game {
 	/** Ambient-glow pulse phase accumulator in seconds (drives glow breathing). */
 	private glowPhase = 0;
 	/**
-	 * Peak alpha intensity for the current level's night overlay. Set from
-	 * {@link NIGHT_LIGHTING} when a level loads; passed to {@link updateDayNight}
+	 * Peak alpha intensity for the current level's night overlay. Set from the
+	 * theme pack's `lighting` when a level loads; passed to {@link updateDayNight}
 	 * each step so each theme controls how dark full-night feels.
 	 */
 	private nightIntensity = 0.4;
@@ -302,7 +302,7 @@ export class Game {
 		// clear + re-fill rather than re-creating the object; alpha stays at 0
 		// and is animated each step by updateDayNight. The intensity scalar for
 		// this theme is stored so the step loop can pass it through.
-		const lighting = NIGHT_LIGHTING[this.level.themeStyle];
+		const lighting = getThemePack(this.level.themeStyle).lighting;
 		this.nightIntensity = lighting.intensity;
 		this.nightOverlay.clear();
 		this.nightOverlay

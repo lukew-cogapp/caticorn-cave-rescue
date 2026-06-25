@@ -1,4 +1,11 @@
 import type { DecorKind } from "../types";
+import type { ThemePack } from "./theme-pack";
+import { blossomPack } from "./themes/blossom";
+import { cryptPack } from "./themes/crypt";
+import { crystalPack } from "./themes/crystal";
+import { grovePack } from "./themes/grove";
+import { icePack } from "./themes/ice";
+import { moltenPack } from "./themes/molten";
 
 /** Theme-specific ambient particle that drifts through the cave for atmosphere. */
 export type AmbientKind =
@@ -12,8 +19,8 @@ export type AmbientKind =
 /**
  * Visual identity discriminant for a cave. Drives theme-specific background
  * silhouettes, floor/platform texture, monster flavour, and ambient lighting
- * (each draw helper branches on this), so caves look like distinct places, not
- * recoloured rock. One per bespoke theme.
+ * (each draw helper looks up the matching {@link ThemePack}), so caves look like
+ * distinct places, not recoloured rock. One per bespoke theme.
  */
 export type ThemeStyle =
 	| "blossom"
@@ -24,12 +31,17 @@ export type ThemeStyle =
 	| "molten";
 
 /**
- * A bespoke cave theme: a strong visual identity, not just a recoloured rock
- * mood. `bg` is the background gradient (top, bottom); `accent` recolours
- * monsters + decor toward the mood; `ceilingKinds` / `floorKinds` are the
- * signature decor this cave scatters (weighted by repetition in the array);
+ * A bespoke cave theme's metadata: a strong visual identity, not just a
+ * recoloured rock mood. `bg` is the background gradient (top, bottom); `accent`
+ * recolours monsters + decor toward the mood; `ceilingKinds` / `floorKinds` are
+ * the signature decor this cave scatters (weighted by repetition in the array);
  * `ambient` is the drifting particle that fills the air. All backgrounds are
  * kept dark enough that the bright caticorns pop.
+ *
+ * This is the metadata slice of a {@link ThemePack} (everything except the draw
+ * hooks + lighting/mechanic), surfaced separately so level generation and the
+ * theme tests can work with plain data. Each entry of {@link THEMES} is derived
+ * from the matching pack, so the two never drift.
  */
 export interface CaveTheme {
 	/** Cave name, used as the level name. */
@@ -50,66 +62,49 @@ export interface CaveTheme {
 }
 
 /**
- * The bespoke cave theme pool. Each cave has a distinct identity (palette +
- * signature decor + ambient particle). A run seed picks (without immediate
- * repeats) from these, so different seeds yield different cave sets and order.
+ * The bespoke cave theme registry: the single source of truth for every theme.
+ * Each {@link ThemePack} bundles the theme's metadata, ambient lighting, optional
+ * gameplay mechanic tweaks, and all of its theme-specific draw hooks, so adding
+ * or reskinning a theme is a single file under `level/themes/`.
+ *
+ * Order is load-bearing: {@link THEMES} and {@link pickThemes}'s shuffle iterate
+ * this list, so keep the order stable to keep a given seed's cave set + order
+ * stable.
  */
-export const THEMES: CaveTheme[] = [
-	{
-		name: "Cherry Blossom Hollow",
-		bg: ["#3a2030", "#1e1018"],
-		accent: "#ff9ec9",
-		ceilingKinds: ["blossom", "blossom", "crystal"],
-		floorKinds: ["blossom", "moss", "pebble"],
-		ambient: "petal",
-		style: "blossom",
-	},
-	{
-		name: "Crystal Cavern",
-		bg: ["#221a3e", "#100a22"],
-		accent: "#9b8bff",
-		ceilingKinds: ["gemcluster", "gemcluster", "crystal"],
-		floorKinds: ["gemcluster", "crystal", "pebble"],
-		ambient: "gemsparkle",
-		style: "crystal",
-	},
-	{
-		name: "Glacier Vault",
-		bg: ["#16314a", "#0c1b2c"],
-		accent: "#9fe0ff",
-		ceilingKinds: ["icicle", "icicle", "crystal"],
-		floorKinds: ["icicle", "pebble", "pebble"],
-		ambient: "snow",
-		style: "ice",
-	},
-	{
-		name: "Spectre Crypt",
-		bg: ["#202430", "#0e1016"],
-		accent: "#7faf8c",
-		ceilingKinds: ["web", "web", "crack"],
-		floorKinds: ["gravestone", "gravestone", "pebble"],
-		ambient: "fog",
-		style: "crypt",
-	},
-	{
-		name: "Mushroom Grove",
-		bg: ["#16321f", "#0a1a11"],
-		accent: "#5fd07a",
-		ceilingKinds: ["crystal", "crack"],
-		floorKinds: ["mushroom", "mushroom", "moss"],
-		ambient: "spore",
-		style: "grove",
-	},
-	{
-		name: "Molten Hollow",
-		bg: ["#3a1410", "#1c0806"],
-		accent: "#ff7a3b",
-		ceilingKinds: ["emberrock", "crack"],
-		floorKinds: ["emberrock", "emberrock", "pebble"],
-		ambient: "ember",
-		style: "molten",
-	},
+export const THEME_PACKS: ThemePack[] = [
+	blossomPack,
+	crystalPack,
+	icePack,
+	cryptPack,
+	grovePack,
+	moltenPack,
 ];
+
+/** Fast `ThemeStyle` → {@link ThemePack} lookup for the draw dispatchers. */
+const PACK_BY_STYLE: Record<ThemeStyle, ThemePack> = Object.fromEntries(
+	THEME_PACKS.map((p) => [p.style, p]),
+) as Record<ThemeStyle, ThemePack>;
+
+/** Look up the {@link ThemePack} for a {@link ThemeStyle}. */
+export function getThemePack(style: ThemeStyle): ThemePack {
+	return PACK_BY_STYLE[style];
+}
+
+/**
+ * The bespoke cave theme pool (metadata view, derived from {@link THEME_PACKS}).
+ * Each cave has a distinct identity (palette + signature decor + ambient
+ * particle). A run seed picks (without immediate repeats) from these, so
+ * different seeds yield different cave sets and order.
+ */
+export const THEMES: CaveTheme[] = THEME_PACKS.map((p) => ({
+	name: p.name,
+	bg: p.bg,
+	accent: p.accent,
+	ceilingKinds: p.ceilingKinds,
+	floorKinds: p.floorKinds,
+	ambient: p.ambient,
+	style: p.style,
+}));
 
 /** How rescue platforms are arranged across a level. */
 export type LayoutStyle = "steps" | "zigzag" | "towers" | "gauntlet";

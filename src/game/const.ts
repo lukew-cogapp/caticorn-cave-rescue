@@ -7,7 +7,7 @@
  * `private static readonly` across the game files lives here.
  */
 
-import type { AmbientKind, ThemeStyle } from "./level/themes";
+import type { AmbientKind } from "./level/themes";
 
 // --- Player movement ---
 
@@ -224,40 +224,6 @@ export const MOTE_RISE_SPEED = 9;
 export const MOTE_SWAY = 14;
 /** Peak alpha of an ambient mote (very faint atmosphere). */
 export const MOTE_ALPHA = 0.5;
-
-// --- Per-theme ambient lighting ---
-
-/**
- * Ambient night-overlay tint and intensity per {@link ThemeStyle}.
- *
- * `color` is the fill colour of the full-screen night overlay (a PixiJS
- * 0xRRGGBB integer). `intensity` is the peak alpha multiplier applied on top
- * of the (1-cos)/2 wave — higher means darker / eerier at full night. Keep
- * all values subtle so gameplay stays readable and caticorns pop.
- *
- * Rough targets:
- *  - blossom: soft warm-pink dusk (romantic, gentle).
- *  - crystal: cool violet shimmer (magical cave).
- *  - ice:     cold pale-blue wash (frozen stillness).
- *  - crypt:   sickly desaturated green, slightly darker (eerie, oppressive).
- *  - grove:   deep teal-green (humid jungle cave).
- *  - molten:  warm orange-red glow (heat haze rising from lava).
- */
-export interface NightLighting {
-	/** 0xRRGGBB fill colour for the night overlay rectangle. */
-	color: number;
-	/** Peak alpha multiplier (replaces the hard-coded 0.4 for all themes). */
-	intensity: number;
-}
-
-export const NIGHT_LIGHTING: Record<ThemeStyle, NightLighting> = {
-	blossom: { color: 0x3a1028, intensity: 0.32 }, // warm pink dusk
-	crystal: { color: 0x1a0a38, intensity: 0.36 }, // cool violet shimmer
-	ice: { color: 0x081828, intensity: 0.34 }, // cold pale blue wash
-	crypt: { color: 0x071510, intensity: 0.46 }, // sickly green, eerier
-	grove: { color: 0x051a10, intensity: 0.38 }, // deep teal-green
-	molten: { color: 0x2a0a04, intensity: 0.3 }, // warm orange-red glow
-};
 
 // --- Themed ambient drifters ---
 
