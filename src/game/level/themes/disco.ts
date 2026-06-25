@@ -1,4 +1,8 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawDiscoBat,
+	drawDiscoCrawler,
+} from "../../art/themes/disco/monsters";
 import { tint, wobble } from "../../art/util";
 import { GAME_HEIGHT } from "../../types";
 import type { FloorTones, PlatformTones, Rng, ThemePack } from "../theme-pack";
@@ -248,7 +252,29 @@ export const discoPack: ThemePack = {
 	},
 
 	// ---------------------------------------------------------------------------
-	// Monster flourish: neon sparkle rim + tiny colour dots
+	// Monster reskins: full per-kind replacements (crawler + bat only)
+	// ---------------------------------------------------------------------------
+	/**
+	 * Full monster reskins for Neon Hollow:
+	 *   - crawler → Groovy Dancing Bot (boxy neon robot, stompable head on top)
+	 *   - bat     → Light-Up Disco Critter (mirror-ball sphere body, neon spots)
+	 *   - lurker  → null (base lurker kept; disco flourish still applies)
+	 *
+	 * Both reskins stay within the base kind's footprint, use bottom-centre origin
+	 * drawn upward, and are fully deterministic (no `Math.random`).
+	 * When this hook returns a container, `monsterFlourish` is skipped for that kind.
+	 */
+	monsterSkin(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawDiscoCrawler(accent);
+		if (kind === "bat") return drawDiscoBat(accent);
+		return null; // lurker: base shape + monsterFlourish handles the disco rim
+	},
+
+	// ---------------------------------------------------------------------------
+	// Monster flourish: neon sparkle rim + tiny colour dots (lurker only now)
 	// ---------------------------------------------------------------------------
 	monsterFlourish(
 		_c: Container,

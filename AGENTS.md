@@ -18,17 +18,26 @@ npm run check      # Biome lint + format check
 npm run format     # Biome write
 npm run typecheck  # astro check (TypeScript)
 npm test           # vitest (pure-logic unit tests)
+npm run test:e2e   # Playwright e2e (needs a build first; uses `astro preview`)
 ```
 
 After any change run `npx astro check`, `npm run build`, `npm test`, and
 `npx @biomejs/biome check . --write`. A lefthook pre-commit hook runs Biome +
-`astro check` + tests; two GitHub Actions (Code Quality, Deploy to GitHub Pages)
-run on push to `main`.
+`astro check` + tests. Two GitHub Actions run on push to `main`: **Code Quality**
+(Biome + typecheck + vitest, plus a Playwright e2e job) and **Deploy to GitHub
+Pages** — and Deploy is **gated**: a `check` job (Biome + typecheck + vitest)
+must pass before the site builds/ships, so a red commit never deploys.
 
-Tests are pure + deterministic (no Pixi/DOM): `levels.test.ts` (seed
-determinism, reachability invariant, difficulty ramp, hazard/grass rules) and
-`types.test.ts` (`rectsOverlap`). Keep test files importing only `levels.ts` /
-`types.ts` (Pixi-free).
+Tests:
+- **Unit** (vitest, pure + deterministic, no Pixi/DOM): `levels.test.ts` (seed
+  determinism, reachability invariant, difficulty ramp, hazard/grass rules,
+  per-level theme/ambient, jump-band distribution, decor fairness),
+  `level/themes.test.ts` (theme pool integrity + `pickThemes` shuffle), and
+  `types.test.ts` (`rectsOverlap`). Keep these importing only Pixi-free modules
+  (`levels.ts` / `level/*` / `types.ts`).
+- **e2e** (Playwright, `e2e/game.spec.ts`): drives the real game via the DOM
+  bridge (start screen, HUD bar, overlay) — pick a hero + start, move + stay
+  responsive, walk into pits + survive. `vitest.config.ts` excludes `e2e/`.
 
 > Dev-only annoyance: a stale Vite dep cache can 504 ("Outdated Optimize Dep")
 > after installing deps. Fix with `rm -rf node_modules/.vite && npm run dev`.
@@ -41,67 +50,112 @@ are only the page shell.
 
 ```
 src/
-  pages/index.astro   # page shell: canvas, start/char-select screen, win-lose
-                      # overlay, touch controls, fullscreen, run-summary. Boots
-                      # the game and bridges DOM <-> engine.
-  layouts/Layout.astro
+  pages/index.astro   # page shell only: composes the components below inside the
+                      # #game-stage, loads the controller via `import page.ts`.
+  components/         # presentational Astro components (markup; the script finds
+                      # them by id): BootSkeleton, StartScreen, HudBar (score bar
+                      # + fullscreen toggle), WinLoseOverlay (flawless badge +
+                      # achievements + Play again / Return to start), RotateHint,
+                      # TouchControls (nipplejs move zone + jump zone).
+  scripts/page.ts     # the whole client controller: boots the Pixi game, renders
+                      # char-select previews, drives the DOM HUD + win/lose +
+                      # achievements, nipplejs touch controls, fullscreen, PWA
+                      # install prompt + service-worker register, debug
+                      # level-select (?debug=true), and starts a run.
+  layouts/Layout.astro# <head>: manifest, icons, theme-color, PWA metas.
   game/
     types.ts          # shared interfaces + tuning constants (GRAVITY,
                       # JUMP_VELOCITY, TRAMPOLINE_VELOCITY, GAME_WIDTH/HEIGHT,
-                      # GROUND_Y, PLAYER_W/H), Rect/Vec2, Platform (grass flag),
-                      # Level (bg + themeAccent), rectsOverlap, HudState, GameHandle.
-    levels.ts         # buildLevels(seed?): procedural generator. Seeded PRNG
-                      # (deterministic) — the seed drives theme/colour/layout per
-                      # level; physics-based reachability checks so every gap +
-                      # platform is provably clearable. Places platforms (some
-                      # grassy), caticorns (shackle/cage), monsters, trampolines,
-                      # flutes, decor. Poops are NOT authored — only lurkers drop
-                      # them. Tests pass a fixed seed; the game passes a random one.
-    Game.ts           # orchestrator: Pixi app, world container, camera lerp,
-                      # day/night tint, all collisions, health/damage + death,
-                      # falling + ground poop, pause, exit waypoints, level flow.
-    caticorn.ts       # bootGame() entry + public GameHandle (start(variant,seed?)
-                      # /restart/resize/resetView/destroy). Re-exports CHARACTERS.
-    art/              # all sprites, Pixi Graphics only (barrel: art/index.ts so
-                      # `from "../art"` keeps working). util.ts (colour/tint/PRNG
-                      # helpers), characters.ts (buildCaticorn, hats, drawPlayer/
-                      # Caticorn/Ghost, PLAYER_PALETTES, CATICORN_PALETTES,
-                      # CHARACTERS), props.ts (monster, exit+glow, cage, shackle,
-                      # poop, trampoline, flute), scenery.ts (background, decor,
-                      # grass), particles.ts (particle, firefly).
-    audio.ts          # Chiptune class: levelWin/gameWin/rescue(step)/hurt.
+                      # GROUND_Y, PLAYER_W/H), Rect/Vec2, Platform (grass), Level
+                      # (bg + themeAccent + themeStyle + ambient), MonsterSpec.kind
+                      # (crawler/bat/lurker/luke), DecorKind, rectsOverlap,
+                      # HudState (+ score + FlawlessFlags), GameHandle.
+    const.ts          # ALL gameplay/physics/timing tuning numbers (movement,
+                      # jump, combat, hit-stop, poop, FIXED_DT/MAX_FRAME_TIME,
+                      # camera, theme mechanics, ambient profiles, Luke, etc.).
+    levels.ts         # buildLevels(seed?): procedural generator. A run is 6 caves
+                      # at a fixed difficulty ramp; pickThemes shuffles the theme
+                      # pool so each run visits a RANDOM 6 of the ~14 bespoke
+                      # themes in random order. Physics-based reachability checks
+                      # so every gap + platform is provably clearable. Places
+                      # platforms (some grassy), caticorns (shackle/cage),
+                      # monsters (Luke guards the final exit), trampolines, flutes,
+                      # decor (sampled from the theme). Poops are NOT authored —
+                      # only lurkers drop them. buildShowcaseLevels() = one level
+                      # per theme for the ?debug=true level-select.
+    level/            # themes.ts (ThemeStyle + AmbientKind unions, THEME_PACKS
+                      # registry, THEMES view, getThemePack, pickThemes shuffle),
+                      # theme-pack.ts (ThemePack interface: metadata + lighting +
+                      # optional mechanic + OPTIONAL draw hooks — bg silhouettes,
+                      # floor/platform skin, monsterFlourish, monsterSkin reskin —
+                      # absent hooks fall back to generic defaults), themes/<style>.ts
+                      # (one bespoke ThemePack per theme), prng.ts, reachability.ts.
+    Game.ts           # orchestrator: Pixi app, world container, FIXED-TIMESTEP
+                      # sim loop (accumulator → step), camera lerp, per-theme
+                      # night-tint lighting, collisions, health/damage + death,
+                      # poop, pause, exit waypoints, flawless tracking, level flow.
+    caticorn.ts       # bootGame() entry + GameHandle (start(variant,seed?,
+                      # startLevel?,showcase?)/restart/resize/resetView/destroy).
+    art/              # Pixi Graphics only (barrel art/index.ts). util.ts
+                      # (colour/tint/PRNG/wobble), characters.ts (caticorns, hats,
+                      # horn, drawPlayer/Caticorn/Ghost, drawLuke), props.ts
+                      # (drawMonster + flourish/reskin dispatch, exit, cage,
+                      # shackle, poop, trampoline, flute), scenery.ts (parallax bg
+                      # layers, floor strip, platform, decor, grass — themed via
+                      # ThemePack hooks), particles.ts (drawParticle kinds + ambient
+                      # + rescue ring), themes/<style>/ (per-theme asset modules,
+                      # e.g. monster reskins).
+    audio.ts          # Chiptune: levelWin/gameWin/rescue(step)/hurt + jump/stomp/
+                      # trampoline/flute/squish SFX + themeSting(style) per-theme
+                      # one-shot motif on level load. WebAudio only, no files.
     strings/en.ts     # ALL user-facing copy (EN). Reference keys, don't hardcode.
     entities/
-      Entity.ts       # abstract base: view, pos (bottom-centre), vel, aabb(),
-                      # update(ctx), syncView(), destroy().
-      Player.ts       # input, skid-eased movement, coyote/buffer/variable jump +
-                      # double jump, apex-hang gravity, squash/stretch, idle
-                      # breathing, trampoline bounce, slamDown, poop-feet effect.
-      Monster.ts      # Monster base + Crawler / Bat / Lurker (ceiling poop
-                      # dropper); kill()/isDead()/isLethal(); createMonster(spec,
-                      # accent?).
-      Caticorn.ts     # rescuable; varied palette per captive, shackle/cage
-                      # binding that breaks on free, sad->happy + float-up.
-      Exit.ts         # static gate + inner glow that brightens by proximity;
-                      # locked until all caticorns freed.
+      Entity.ts       # abstract base: view, pos (bottom-centre), vel, aabb()...
+      Player.ts       # input, skid movement (+ ice friction), coyote/buffer/
+                      # variable + double jump, mid-air first jump, apex gravity,
+                      # squash, idle breathing, trampoline + grove bounce, poop feet.
+      Monster.ts      # Monster base + Crawler / Bat / Lurker + Luke (boss: taller
+                      # crawler, telegraphed sword swing widens aabb); createMonster.
+      Caticorn.ts     # rescuable; per-captive palette, accent-tinted shackle/cage.
+      Exit.ts         # static gate + inner glow; locked until all freed.
+    game/             # extracted per-frame systems: collisions.ts, camera.ts,
+                      # daynight.ts, poop.ts, waypoints.ts, input.ts, scene.ts
+                      # (loadScene), pauseOverlay.ts.
     systems/
-      Hud.ts          # in-canvas HUD bar (level / rescued / score + timer).
       HealthBar.ts    # floating green>yellow>orange>red bar over the player.
-      Particles.ts    # deterministic burst pool parented to the world.
+      Particles.ts    # deterministic burst pool + expanding rescue rings.
       Fireflies.ts    # ambient drifting background fireflies.
+      Motes.ts        # themed ambient drifters (per-AmbientKind motion profile).
       ScreenShake.ts  # deterministic pivot-based screen shake.
 ```
+
+The HUD/score bar, win-lose overlay and achievements are now **DOM** (above /
+over the canvas), driven by `Game`'s `onHud(HudState)` callback in `page.ts` —
+not in-canvas. Keep `page.ts` HUD writes null-tolerant (it's the engine
+callback; a throw there would freeze the sim loop).
 
 ### Coordinate + rendering conventions
 
 - Entity position is **bottom-centre**; sprites are drawn upward with negative y.
-  Exception: ceiling things (stalactite decor, the Lurker monster) draw downward
-  from y=0 and are placed at the ceiling.
+  Exception: ceiling things (stalactite decor, the Lurker monster, ceiling
+  reskins) draw downward from y=0 and are placed at the ceiling.
 - Internal render resolution is fixed at 800x450 (16:9). The canvas is
   CSS/`renderer.resize`d to fit; the play frame targets 80vh on large screens.
-- The HUD + day/night tint live on `app.stage` (fixed); gameplay lives in the
-  scrolling `world` container. Screen shake offsets `app.stage.pivot` so it
-  doesn't fight the letterbox offset on `stage.x/y`.
+- Day/night tint lives on `app.stage` (fixed); gameplay lives in the scrolling
+  `world` container. Screen shake offsets `app.stage.pivot` so it doesn't fight
+  the letterbox offset on `stage.x/y`.
+- Static per-level art (bg layers, floor, platforms, decor) is `cacheAsTexture`d;
+  animated things (glow clusters, fireflies, motes, entities) are NOT cached.
+
+### Adding / theming a cave
+
+A theme is one file: `level/themes/<style>.ts` exporting a `ThemePack`
+(metadata + lighting + optional mechanic + only the draw hooks it needs). Add its
+`ThemeStyle` literal to the union in `themes.ts` and the pack to `THEME_PACKS`.
+Reuse existing `DecorKind`s for scatter; express identity through the hooks.
+Per-theme assets (e.g. monster reskins via `monsterSkin`) live in
+`art/themes/<style>/`. Omitted hooks use generic defaults, so a minimal pack is
+just palette + lighting + a hook or two.
 
 ## Hard rules
 
@@ -116,10 +170,16 @@ src/
 
 ## Gameplay summary
 
-Pick a hero (Aubrey/strawberry, Quinn/acorn, Summer/sunhat, Hallie/crystal),
-free every caticorn in a cave, then reach the glowing exit. Clear four caves to
-win. Each run gets a random seed → different theme (10 palettes), colours and
-layout per cave; monsters + decor recolour to the level mood.
+Pick a hero (Aubrey/strawberry, Quinn/acorn, Summer/big-hair, Hallie/crystal),
+free every caticorn in a cave, then reach the glowing exit. Clear six caves to
+win. Each run picks a random 6 of ~14 bespoke themes (cherry blossom, crystal,
+ice, crypt, grove, molten, disco, tropical, Brighton beach, halloween, cat,
+minecraft, mario, candy) in random order — each with its own background
+silhouettes, floor/platform skin, decor, ambient particle, lighting and a
+one-shot music sting; some have a signature mechanic (ice = slippery, molten =
+hazard-dense, grove = bouncy ground) and several reskin the monsters (crypt
+skeletons/ghosts, minecraft creeper, mario goomba, cat cats, disco bots). The
+final cave is guarded by the "Luke" boss (a sword-swinging crawler).
 
 - **Movement**: skid-eased run, coyote time + jump buffering + variable-height
   jump, double jump, apex-hang gravity, idle breathing. **P** pauses (desktop).
@@ -133,9 +193,15 @@ layout per cave; monsters + decor recolour to the level mood.
 - **Hazards**: pits, lethal ceiling stalactites, slow-you-down poop (lingers,
   brown feet, blocks jumping, fades ~5s) dropped by a ceiling **Lurker**;
   a falling poop on the head slams you down.
-- **Extras**: trampolines, floating flutes, ambient fireflies, day/night tint,
-  hit-stop + screen shake + particle juice. At a locked exit, waypoint arrows
-  point to whoever you missed.
+- **Extras**: trampolines, floating flutes, ambient fireflies + themed motes,
+  day/night tint, hit-stop + screen shake + particle juice. At a locked exit,
+  waypoint arrows point to whoever you missed. The win screen lists achievements
+  earned (no damage / no kills / no falls / no poo) + a FLAWLESS badge if all
+  four held; buttons offer Play again or Return to start.
+- **Mobile**: a nipplejs floating joystick (left half) + jump zone (right half);
+  installable as a PWA (manifest + service worker + add-to-home-screen prompt).
+- **Debug**: `?debug=true` adds a level-select listing every theme (jumps
+  straight in via a showcase build).
 
 ## Astro reference
 
