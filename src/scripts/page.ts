@@ -36,11 +36,11 @@ const startBtn = document.getElementById("start-btn") as HTMLButtonElement;
 const runSummary = document.getElementById(
 	"run-summary",
 ) as HTMLParagraphElement;
-const hudBar = document.getElementById("hud-bar") as HTMLDivElement;
-const hudLevel = document.getElementById("hud-level") as HTMLSpanElement;
-const hudRescued = document.getElementById("hud-rescued") as HTMLSpanElement;
-const hudScore = document.getElementById("hud-score") as HTMLSpanElement;
-const hudTimeVal = document.getElementById("hud-time-val") as HTMLSpanElement;
+const hudBar = document.getElementById("hud-bar");
+const hudLevel = document.getElementById("hud-level");
+const hudRescued = document.getElementById("hud-rescued");
+const hudScore = document.getElementById("hud-score");
+const hudTimeVal = document.getElementById("hud-time-val");
 
 /** Format seconds as m:ss. */
 function formatTime(seconds: number): string {
@@ -50,18 +50,23 @@ function formatTime(seconds: number): string {
 }
 
 function renderHud(s: HudState) {
+	// HUD updates must never throw: this is the engine's onHud callback, so an
+	// exception here would kill the sim loop and freeze the game. Guard each DOM
+	// write with optional chaining so a missing element degrades gracefully.
 	// Live score bar, shown only while playing.
 	if (s.status === "playing") {
 		const name = EN.levels[s.levelName] ?? s.levelName;
-		hudLevel.textContent = EN.hudLevel(name, s.level, s.totalLevels);
-		hudRescued.textContent = EN.hudRescued(s.rescued, s.toRescue);
-		hudScore.textContent = EN.hudScore(s.score);
-		hudTimeVal.textContent = formatTime(s.elapsed);
-		hudBar.classList.remove("hidden");
-		hudBar.classList.add("flex");
+		if (hudLevel)
+			hudLevel.textContent = EN.hudLevel(name, s.level, s.totalLevels);
+		if (hudRescued)
+			hudRescued.textContent = EN.hudRescued(s.rescued, s.toRescue);
+		if (hudScore) hudScore.textContent = EN.hudScore(s.score);
+		if (hudTimeVal) hudTimeVal.textContent = formatTime(s.elapsed);
+		hudBar?.classList.remove("hidden");
+		hudBar?.classList.add("flex");
 	} else {
-		hudBar.classList.add("hidden");
-		hudBar.classList.remove("flex");
+		hudBar?.classList.add("hidden");
+		hudBar?.classList.remove("flex");
 	}
 	if (s.status === "playing") {
 		overlay.classList.add("hidden");
