@@ -48,6 +48,15 @@ export const EN = {
 	flawlessTitle: "✨ FLAWLESS RESCUE ✨",
 	flawlessSub:
 		"Untouched, peaceful, sure-footed and clean. A perfect run, you absolute legend.",
+	/** Heading above the per-achievement list on the win screen. */
+	achievementsTitle: "Achievements earned",
+	/** Individual end-screen achievements: icon + label for each feat held all run. */
+	achievements: {
+		noDamage: { icon: "🛡️", label: "Untouched — took no damage" },
+		noKills: { icon: "☮️", label: "Pacifist — harmed no baddies" },
+		noFalls: { icon: "🦶", label: "Sure-footed — never fell in a pit" },
+		noPoop: { icon: "✨", label: "Squeaky clean — dodged every poo" },
+	},
 	lostTitle: "Out of lives",
 	lostSub: (rescued: number) => `You rescued ${rescued} this run. Try again?`,
 	playAgain: "Play again",

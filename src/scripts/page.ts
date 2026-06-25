@@ -21,6 +21,9 @@ const overlaySub = document.getElementById("overlay-sub") as HTMLElement;
 const flawlessBadge = document.getElementById(
 	"flawless-badge",
 ) as HTMLDivElement;
+const achievementsBox = document.getElementById(
+	"achievements",
+) as HTMLDivElement;
 const restartBtn = document.getElementById("restart-btn") as HTMLButtonElement;
 const startScreen = document.getElementById("start-screen") as HTMLDivElement;
 const cardsWrap = document.getElementById("char-cards") as HTMLDivElement;
@@ -83,8 +86,22 @@ function renderHud(s: HudState) {
 	overlay.classList.add("flex");
 	overlayTitle.textContent = EN.wonTitle;
 	overlaySub.textContent = EN.wonSub;
-	// Flawless badge: only when all four feats held the whole run.
+	// Achievements: show each feat the player actually held this run, and the
+	// FLAWLESS badge only when all four held.
 	const f = s.flawless;
+	let earned = 0;
+	for (const li of achievementsBox.querySelectorAll<HTMLElement>(
+		"[data-feat]",
+	)) {
+		const held = f[li.dataset.feat as keyof typeof f] === true;
+		if (held) {
+			li.dataset.earned = "";
+			earned++;
+		} else {
+			delete li.dataset.earned;
+		}
+	}
+	achievementsBox.classList.toggle("hidden", earned === 0);
 	const flawless = f.noDamage && f.noKills && f.noFalls && f.noPoop;
 	flawlessBadge.classList.toggle("hidden", !flawless);
 }
