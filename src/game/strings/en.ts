@@ -36,6 +36,9 @@ export const EN = {
 	moveRight: "Move right",
 	jump: "Jump",
 
+	/** Shown on portrait phones prompting the player to turn the device. */
+	rotateHint: "Rotate your device to landscape to play",
+
 	/** Fullscreen toggle. */
 	fullscreen: "Fullscreen",
 	exitFullscreen: "Exit",
