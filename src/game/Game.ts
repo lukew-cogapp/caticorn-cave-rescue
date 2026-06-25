@@ -63,6 +63,8 @@ const HIT_DAMAGE = 1 / 5;
 const FLUTE_HEAL = 1 / 5;
 /** Damage from a falling poop landing on the player's head. */
 const POOP_DAMAGE = 1 / 10;
+/** Seconds the "you missed someone" waypoint arrows stay visible. */
+const WAYPOINT_TIME = 3;
 /**
  * How far the player's feet may sit below a monster's top and still count as a
  * stomp rather than a side hit, in pixels.
@@ -133,6 +135,10 @@ export class Game {
 	private paused = false;
 	/** Dimming overlay + "Paused" label shown while paused. */
 	private readonly pauseOverlay = new Container();
+	/** Fixed overlay holding "missed caticorn" waypoint arrows. */
+	private readonly waypoints = new Container();
+	/** Seconds remaining to show the waypoint arrows (set at a locked exit). */
+	private waypointTimer = 0;
 
 	private level!: Level;
 	private player!: Player;
@@ -181,6 +187,10 @@ export class Game {
 		// In-canvas HUD, drawn above the world + tint so it stays legible. Fixed
 		// screen position (added to stage, not the scrolling world).
 		this.app.stage.addChild(this.hud.view);
+
+		this.waypoints.eventMode = "none";
+		this.waypoints.visible = false;
+		this.app.stage.addChild(this.waypoints);
 
 		this.buildPauseOverlay();
 		this.app.stage.addChild(this.pauseOverlay);
@@ -310,6 +320,7 @@ export class Game {
 		this.poopTimer = 0;
 		this.freezeTimer = 0;
 		this.invulnTimer = 0;
+		this.waypointTimer = 0;
 		this.fallingPoops = [];
 
 		// Background gradient + cave mood, then ambient fireflies in front of it
@@ -746,13 +757,65 @@ export class Game {
 		const allFreed = this.caticorns.every((c) => c.rescued);
 		this.exit.setUnlocked(allFreed);
 		this.exit.update(ctx);
-		if (allFreed && rectsOverlap(pBox, this.exit.aabb())) {
-			this.clearLevel();
-			return;
+		if (rectsOverlap(pBox, this.exit.aabb())) {
+			if (allFreed) {
+				this.clearLevel();
+				return;
+			}
+			// Reached a locked exit: nudge the player toward who they missed.
+			if (this.waypointTimer <= 0) this.audio.hurt();
+			this.waypointTimer = WAYPOINT_TIME;
 		}
 
 		this.updateCamera(dt);
+		this.updateWaypoints(dt);
 	};
+
+	/**
+	 * While the waypoint timer is active (set by touching a locked exit), draw an
+	 * arrow toward each unrescued caticorn — clamped to the screen edge when the
+	 * caticorn is off-screen, like a waypoint marker.
+	 */
+	private updateWaypoints(dt: number): void {
+		if (this.waypointTimer <= 0) {
+			if (this.waypoints.visible) this.waypoints.visible = false;
+			return;
+		}
+		this.waypointTimer -= dt;
+		this.waypoints.visible = true;
+		for (const c of this.waypoints.removeChildren()) c.destroy();
+		const pad = 26;
+		for (const cat of this.caticorns) {
+			if (cat.rescued) continue;
+			// Caticorn position in screen space (world is scrolled by world.x).
+			const sx = cat.pos.x + this.world.x;
+			const sy = cat.pos.y - cat.aabb().h / 2;
+			const cx = GAME_WIDTH / 2;
+			const cy = GAME_HEIGHT / 2;
+			const onScreen = sx > 0 && sx < GAME_WIDTH && sy > 40 && sy < GAME_HEIGHT;
+			let ax = sx;
+			let ay = sy - 30; // float above the caticorn when on-screen
+			if (!onScreen) {
+				// Clamp to the screen edge along the direction to the caticorn.
+				const dx = sx - cx;
+				const dy = sy - cy;
+				const scale = Math.min(
+					(GAME_WIDTH / 2 - pad) / Math.max(1, Math.abs(dx)),
+					(GAME_HEIGHT / 2 - pad) / Math.max(1, Math.abs(dy)),
+				);
+				ax = cx + dx * scale;
+				ay = cy + dy * scale;
+			}
+			const angle = Math.atan2(sy - ay, sx - ax);
+			const arrow = new Graphics()
+				.poly([12, 0, -8, -7, -8, 7])
+				.fill({ color: 0xffe14d, alpha: 0.95 });
+			arrow.x = ax;
+			arrow.y = ay;
+			arrow.rotation = angle;
+			this.waypoints.addChild(arrow);
+		}
+	}
 
 	/**
 	 * Smoothly follow the player by lerping the world container toward the target
