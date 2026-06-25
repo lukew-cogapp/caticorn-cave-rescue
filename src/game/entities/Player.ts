@@ -131,19 +131,22 @@ export class Player extends Entity {
 
 		// Poop-stuck feet can't jump (ground or air) until the effect wears off.
 		if (this.bufferTimer > 0 && !this.poopAffected) {
-			// The first jump is available from the ground OR within coyote time;
-			// the second (air) jump is available until MAX_JUMPS is spent.
-			const canGroundJump = this.jumpsUsed === 0 && this.coyoteTimer > 0;
+			// First jump (#1): available from the ground, within coyote time, OR
+			// mid-air if it was never used — so walking off a ledge and pressing
+			// jump late still gives you your first jump in the air (it just spends
+			// jump #1, leaving the double jump intact, exactly as a ground jump
+			// would). The second (air) jump is available until MAX_JUMPS is spent.
+			const canFirstJump = this.jumpsUsed === 0;
 			const canAirJump =
 				this.jumpsUsed > 0 && this.jumpsUsed < Player.MAX_JUMPS;
-			if (canGroundJump || canAirJump) {
+			if (canFirstJump || canAirJump) {
 				this.vel.y = JUMP_VELOCITY;
 				this.onGround = false;
 				this.coyoteTimer = 0;
 				this.bufferTimer = 0;
 				this.cuttable = true;
-				// A ground-eligible first jump counts as jump #1; otherwise it's #2.
-				this.jumpsUsed = canGroundJump ? 1 : this.jumpsUsed + 1;
+				// A first jump counts as jump #1; otherwise it's the next air jump.
+				this.jumpsUsed = canFirstJump ? 1 : this.jumpsUsed + 1;
 				if (this.jumpsUsed >= 2) this.doubleJumpedThisAir = true;
 				this.squash = 0.5; // pop tall on take-off
 			}
