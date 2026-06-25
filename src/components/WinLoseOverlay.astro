@@ -1,0 +1,30 @@
+---
+import { EN } from "../game/strings/en";
+---
+
+<!-- Overlay for win/lose -->
+<div
+	id="overlay"
+	class="absolute inset-0 hidden flex-col items-center justify-center bg-stone-900/80 text-center text-amber-50"
+>
+	<h2 id="overlay-title" class="text-3xl font-extrabold"></h2>
+	<p id="overlay-sub" class="mt-2 text-stone-300"></p>
+	<!-- Flawless-run badge (shown only on a perfect win). -->
+	<div
+		id="flawless-badge"
+		class="mt-4 hidden max-w-md rounded-2xl bg-gradient-to-r from-amber-400/20 via-pink-400/20 to-amber-400/20 px-5 py-3 ring-1 ring-amber-300/40"
+	>
+		<p
+			class="bg-gradient-to-r from-amber-300 via-pink-200 to-amber-300 bg-clip-text text-lg font-extrabold tracking-wide text-transparent"
+		>
+			{EN.flawlessTitle}
+		</p>
+		<p class="mt-1 text-sm text-amber-100">{EN.flawlessSub}</p>
+	</div>
+	<button
+		id="restart-btn"
+		class="mt-5 rounded-full bg-amber-400 px-6 py-2 font-bold text-stone-900 transition hover:bg-amber-300"
+	>
+		{EN.playAgain}
+	</button>
+</div>
