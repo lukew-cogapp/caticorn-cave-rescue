@@ -42,6 +42,16 @@ export abstract class Monster extends Entity {
 		return this.dead;
 	}
 
+	/** Whether touching this monster harms the player. Overridden by harmless ones. */
+	isLethal(): boolean {
+		return true;
+	}
+
+	/** Poll for a pending poop drop (Lurker only); null for monsters that don't drop. */
+	consumeDrop(): number | null {
+		return null;
+	}
+
 	/**
 	 * Advance the death animation by dt: sink downward, spin, and fade the view
 	 * toward fully transparent. Subclasses run this from update() while dead.
@@ -143,8 +153,78 @@ export class Bat extends Monster {
 	}
 }
 
+/**
+ * Ceiling-dweller. Clings to the ceiling and drifts slowly, always toward the
+ * player's current x (never starts in the spawn zone — enforced at placement).
+ * Periodically drops a poop straight down. It is not lethal on contact (it lives
+ * out of reach overhead); the hazard is the poop it leaves on the floor.
+ */
+export class Lurker extends Monster {
+	protected readonly halfWidth = 15;
+	protected readonly height = 26;
+
+	/** Seconds between poop drops. */
+	private static readonly DROP_INTERVAL = 3.2;
+	/** Gentle horizontal sway amplitude in px. */
+	private static readonly SWAY = 10;
+
+	private dropTimer = Lurker.DROP_INTERVAL;
+	private swayPhase = 0;
+	/** World x of a pending poop drop, or null when nothing to drop this frame. */
+	private pendingDrop: number | null = null;
+
+	/** Overhead and out of reach: contact is harmless, the dropped poop isn't. */
+	override isLethal(): boolean {
+		return false;
+	}
+
+	update(ctx: WorldContext): void {
+		if (this.isDead()) {
+			this.animateDeath(ctx.dt);
+			return;
+		}
+		// Drift slowly toward the player's x, then add a small idle sway so it
+		// reads as alive. `speed` is intentionally low for the ceiling stalker.
+		const targetX = ctx.player.pos.x;
+		const step = this.speed * ctx.dt;
+		if (Math.abs(targetX - this.pos.x) > step) {
+			this.pos.x += Math.sign(targetX - this.pos.x) * step;
+			this.view.scale.x = targetX < this.pos.x ? -1 : 1;
+		}
+		this.swayPhase += ctx.dt;
+		this.pos.x += Math.cos(this.swayPhase * 1.5) * Lurker.SWAY * ctx.dt;
+		// Keep within the world bounds.
+		this.pos.x = Math.max(40, Math.min(ctx.level.worldWidth - 40, this.pos.x));
+
+		// Drop poop on a fixed cadence.
+		this.dropTimer -= ctx.dt;
+		if (this.dropTimer <= 0) {
+			this.dropTimer = Lurker.DROP_INTERVAL;
+			this.pendingDrop = this.pos.x;
+		}
+		this.syncView();
+	}
+
+	/**
+	 * If a poop drop is due, return its world x once and clear it; otherwise null.
+	 * The Game loop polls this to spawn poop on the ground below.
+	 */
+	consumeDrop(): number | null {
+		const x = this.pendingDrop;
+		this.pendingDrop = null;
+		return x;
+	}
+}
+
 /** Build the right Monster subclass for a spec, wiring up its art. */
 export function createMonster(spec: MonsterSpec): Monster {
 	const view = drawMonster(spec.kind);
-	return spec.kind === "bat" ? new Bat(view, spec) : new Crawler(view, spec);
+	switch (spec.kind) {
+		case "bat":
+			return new Bat(view, spec);
+		case "lurker":
+			return new Lurker(view, spec);
+		default:
+			return new Crawler(view, spec);
+	}
 }

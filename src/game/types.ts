@@ -39,8 +39,11 @@ export interface MonsterSpec extends Vec2 {
 	range: number;
 	/** Patrol speed, pixels/sec. */
 	speed: number;
-	/** "crawler" walks a platform; "bat" floats and bobs vertically. */
-	kind: "crawler" | "bat";
+	/**
+	 * "crawler" walks a platform; "bat" floats and bobs vertically; "lurker"
+	 * clings to the ceiling, drifts slowly toward the player, and drops poop.
+	 */
+	kind: "crawler" | "bat" | "lurker";
 }
 
 /** A decorative cave element, purely visual. Floor/wall kinds sit on ground or

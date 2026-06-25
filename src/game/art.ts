@@ -352,9 +352,38 @@ export function drawGhost(variant: PlayerVariant): Container {
  * @param kind - Which baddie to draw.
  * @returns A Pixi {@link Container} ready to position at a world point.
  */
-export function drawMonster(kind: "crawler" | "bat"): Container {
+export function drawMonster(kind: "crawler" | "bat" | "lurker"): Container {
 	const c = new Container();
 	const g = new Graphics();
+
+	if (kind === "lurker") {
+		// Ceiling-dweller: clings overhead and drops poop. Drawn growing DOWNWARD
+		// from its anchor (origin at the ceiling attach point, body below y=0) so
+		// the caller positions it flush to the ceiling.
+		// Gooey attach blob + drip.
+		g.ellipse(0, 4, 14, 6).fill("#3a2a1a");
+		// Squat sack body hanging below.
+		g.roundRect(-15, 6, 30, 22, 11).fill("#4a3520");
+		g.ellipse(0, 18, 9, 7).fill("#5c4327"); // belly highlight
+		// Stubby clinging arms.
+		g.moveTo(-13, 9)
+			.lineTo(-20, 4)
+			.stroke({ color: "#3a2a1a", width: 3, cap: "round" });
+		g.moveTo(13, 9)
+			.lineTo(20, 4)
+			.stroke({ color: "#3a2a1a", width: 3, cap: "round" });
+		// Sleepy-mean eyes (looking down).
+		g.circle(-5, 16, 4).fill("#cfe34d");
+		g.circle(6, 16, 4).fill("#cfe34d");
+		g.circle(-5, 18, 1.8).fill("#1b1230");
+		g.circle(6, 18, 1.8).fill("#1b1230");
+		// Smug mouth.
+		g.moveTo(-5, 24)
+			.quadraticCurveTo(0, 22, 5, 24)
+			.stroke({ color: "#1b1230", width: 1.5, cap: "round" });
+		c.addChild(g);
+		return c;
+	}
 
 	if (kind === "crawler") {
 		// Little legs poking out below the blob.

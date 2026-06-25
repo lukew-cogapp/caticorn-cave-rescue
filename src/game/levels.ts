@@ -350,6 +350,18 @@ function placeMonsters(
 			kind: "crawler",
 		});
 	}
+
+	// From level 3 on, add a ceiling lurker that drips poop. It starts well past
+	// the spawn zone and drifts slowly toward the player.
+	if (c.monsterCount >= 3) {
+		monsters.push({
+			x: Math.max(spawnSafe + 200, worldWidth * 0.5),
+			y: 0, // ceiling; positioned flush to the top by the Game
+			range: 0,
+			speed: 26, // deliberately slow stalk
+			kind: "lurker",
+		});
+	}
 	return monsters;
 }
 

@@ -156,6 +156,9 @@ export class Game {
 		this.lives = START_LIVES;
 		this.totalRescued = 0;
 		this.elapsed = 0;
+		// Clear any keys held from the start screen (e.g. the Space/Enter that
+		// began the run) so the player doesn't jump on the first frame.
+		this.keys.clear();
 		this.loadLevel(0);
 		this.started = true;
 	}
@@ -247,16 +250,7 @@ export class Game {
 
 		// Poops: static slow-zone hazards on the ground.
 		for (const spec of this.level.poops) {
-			const g = drawPoop();
-			g.x = spec.x;
-			g.y = spec.y;
-			this.world.addChild(g);
-			this.poops.push({
-				x: spec.x - POOP_BOX.halfWidth,
-				y: spec.y - POOP_BOX.height,
-				w: POOP_BOX.halfWidth * 2,
-				h: POOP_BOX.height,
-			});
+			this.dropPoopAt(spec.x, spec.y);
 		}
 
 		// Trampolines: bounce-zones drawn on the ground.
@@ -308,6 +302,24 @@ export class Game {
 		this.emitHud();
 	}
 
+	/**
+	 * Spawn a poop sprite + slow-zone collision box at a world point. Used for
+	 * both level-authored poops and poop dropped by ceiling lurkers. Defaults to
+	 * the ground line when no y is given.
+	 */
+	private dropPoopAt(x: number, y: number = GAME_HEIGHT - 30): void {
+		const g = drawPoop();
+		g.x = x;
+		g.y = y;
+		this.world.addChild(g);
+		this.poops.push({
+			x: x - POOP_BOX.halfWidth,
+			y: y - POOP_BOX.height,
+			w: POOP_BOX.halfWidth * 2,
+			h: POOP_BOX.height,
+		});
+	}
+
 	// --- Simulation loop ---
 
 	private readonly tick = (): void => {
@@ -347,7 +359,12 @@ export class Game {
 
 		this.player.update(ctx);
 		for (const cat of this.caticorns) cat.update(ctx);
-		for (const m of this.monsters) m.update(ctx);
+		for (const m of this.monsters) {
+			m.update(ctx);
+			// Ceiling lurkers periodically drop poop onto the ground below.
+			const dropX = m.consumeDrop();
+			if (dropX !== null) this.dropPoopAt(dropX);
+		}
 
 		// Fell into a pit.
 		if (this.player.fellOffWorld()) {
@@ -406,10 +423,11 @@ export class Game {
 			this.player.setPoopAffected(false);
 		}
 
-		// Hit a monster. Dead monsters are inert (skipped). A live monster is a
-		// stomp if the player is falling onto its head, else it's lethal.
+		// Hit a monster. Dead monsters are inert (skipped); so are non-lethal ones
+		// (e.g. the overhead lurker). A live lethal monster is a stomp if the
+		// player is falling onto its head, else it kills the player.
 		for (const m of this.monsters) {
-			if (m.isDead()) continue;
+			if (m.isDead() || !m.isLethal()) continue;
 			const mBox = m.aabb();
 			if (!rectsOverlap(pBox, mBox)) continue;
 			const playerBottom = pBox.y + pBox.h;
