@@ -88,6 +88,8 @@ export class Game {
 	private lives = START_LIVES;
 	/** Caticorns rescued across the whole run (persists across levels). */
 	private totalRescued = 0;
+	/** Score: +1 per caticorn rescued, +1 per monster stomped. */
+	private score = 0;
 	/** Elapsed run time in seconds, accumulated while playing. */
 	private elapsed = 0;
 	/** Remaining seconds of poop slow/stuck effect (lingers after leaving). */
@@ -170,6 +172,7 @@ export class Game {
 		this.levelIndex = 0;
 		this.lives = START_LIVES;
 		this.totalRescued = 0;
+		this.score = 0;
 		this.elapsed = 0;
 		// Clear any keys held from the start screen (e.g. the Space/Enter that
 		// began the run) so the player doesn't jump on the first frame.
@@ -403,8 +406,10 @@ export class Game {
 		}
 		if (this.status !== "playing") return;
 
-		// Accumulate run time while actively playing.
+		// Accumulate run time while actively playing; refresh the HUD so the
+		// on-screen timer ticks live.
 		this.elapsed += dt;
+		this.refreshHud();
 
 		const ctx: WorldContext = {
 			level: this.level,
@@ -492,11 +497,13 @@ export class Game {
 				this.player.velY > 0 && playerBottom <= mBox.y + STOMP_TOLERANCE;
 			if (stomp) {
 				m.kill();
+				this.score += 1;
 				this.player.bounce(STOMP_BOUNCE);
 				this.particles.burst(m.pos.x, m.pos.y - mBox.h / 2, "puff", 8);
 				this.shake.add(3);
 				this.freezeTimer = FREEZE_STOMP;
 				this.audio.rescue();
+				this.emitHud();
 			} else {
 				this.beginDeath();
 				return;
@@ -544,6 +551,7 @@ export class Game {
 			if (!cat.rescued && rectsOverlap(pBox, cat.aabb())) {
 				cat.rescue();
 				this.totalRescued += 1;
+				this.score += 1;
 				const cBox = cat.aabb();
 				this.particles.burst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
 				this.audio.rescue();
@@ -625,21 +633,26 @@ export class Game {
 		this.loadLevel(this.levelIndex);
 	}
 
+	/** Push current state into the in-canvas HUD (called on events + each frame). */
+	private refreshHud(): void {
+		if (!this.level) return;
+		this.hud.update({
+			levelName: this.level.name,
+			levelIndex: this.levelIndex,
+			totalLevels: this.levels.length,
+			rescued: this.caticorns.filter((c) => c.rescued).length,
+			toRescue: this.caticorns.length,
+			lives: this.lives,
+			score: this.score,
+			elapsed: this.elapsed,
+		});
+	}
+
 	private emitHud(): void {
 		const rescued = this.caticorns.filter((c) => c.rescued).length;
 		const toRescue = this.caticorns.length;
 
-		// Update the in-canvas HUD readouts.
-		if (this.level) {
-			this.hud.update({
-				levelName: this.level.name,
-				levelIndex: this.levelIndex,
-				totalLevels: this.levels.length,
-				rescued,
-				toRescue,
-				lives: this.lives,
-			});
-		}
+		this.refreshHud();
 
 		// Still notify the host page for the win/lose overlay (DOM).
 		this.onHud({

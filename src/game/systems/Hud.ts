@@ -2,6 +2,12 @@ import { Container, Graphics, Text } from "pixi.js";
 import { EN } from "../strings/en";
 import { GAME_WIDTH } from "../types";
 
+/** Format seconds as m:ss. */
+function formatTime(seconds: number): string {
+	const s = Math.floor(seconds);
+	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 /** Data the HUD renders each update. */
 export interface HudData {
 	levelName: string;
@@ -10,18 +16,20 @@ export interface HudData {
 	rescued: number;
 	toRescue: number;
 	lives: number;
+	score: number;
+	elapsed: number; // seconds
 }
 
 /**
- * The fixed in-canvas HUD: a translucent top bar with three readouts (level,
- * rescued, lives). Owns its own Container; add `view` to a fixed (non-scrolling)
- * layer above the world.
+ * The fixed in-canvas HUD: a translucent top bar showing level (left), rescued
+ * count (centre), and score / timer / lives (right). Owns its own Container; add
+ * `view` to a fixed (non-scrolling) layer above the world.
  */
 export class Hud {
 	readonly view = new Container();
 	private readonly level: Text;
 	private readonly rescued: Text;
-	private readonly lives: Text;
+	private readonly stats: Text; // score · time · lives, right-aligned
 
 	constructor() {
 		const bar = new Graphics()
@@ -48,10 +56,10 @@ export class Hud {
 		this.rescued.x = GAME_WIDTH / 2;
 		this.rescued.y = 13;
 
-		this.lives = mk();
-		this.lives.y = 13;
+		this.stats = mk();
+		this.stats.y = 13;
 
-		this.view.addChild(this.level, this.rescued, this.lives);
+		this.view.addChild(this.level, this.rescued, this.stats);
 		this.view.eventMode = "none";
 	}
 
@@ -60,8 +68,8 @@ export class Hud {
 		const name = EN.levels[d.levelName] ?? d.levelName;
 		this.level.text = EN.hudLevel(name, d.levelIndex + 1, d.totalLevels);
 		this.rescued.text = EN.hudRescued(d.rescued, d.toRescue);
-		this.lives.text = EN.hudLives(d.lives);
-		// Right-align the lives readout to the play area's right edge.
-		this.lives.x = GAME_WIDTH - 12 - this.lives.width;
+		// Right group: score, timer, lives. Right-aligned to the play-area edge.
+		this.stats.text = `${EN.hudScore(d.score)}   ${formatTime(d.elapsed)}   ${EN.hudLives(d.lives)}`;
+		this.stats.x = GAME_WIDTH - 12 - this.stats.width;
 	}
 }
