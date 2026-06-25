@@ -27,3 +27,6 @@ jobs:
 
       - name: Typecheck
         run: npx astro check
+
+      - name: Tests
+        run: npm test

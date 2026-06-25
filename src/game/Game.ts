@@ -554,7 +554,9 @@ export class Game {
 				this.score += 1;
 				const cBox = cat.aabb();
 				this.particles.burst(cat.pos.x, cBox.y + cBox.h / 2, "spark", 12);
-				this.audio.rescue();
+				// Rising tune: step = how many freed so far this level (0-based).
+				const step = this.caticorns.filter((c) => c.rescued).length - 1;
+				this.audio.rescue(step);
 				this.emitHud();
 			}
 		}

@@ -215,18 +215,26 @@ export class Chiptune {
 	}
 
 	/**
-	 * Optional short blip when a caticorn is rescued.
+	 * Plays one note of a cute, rainbowy rising tune when a caticorn is rescued.
+	 * Pass the rescue index within the level so each pickup climbs a major
+	 * pentatonic scale (and wraps up an octave) — collecting them in a row plays
+	 * a little melody, note per caticorn. A soft octave sparkle sits on top.
 	 *
-	 * Quick two-note up blip (E6 → A6) on a square wave, ~0.15s total. No-op
-	 * without an AudioContext.
+	 * @param step Zero-based index of this rescue in the current level.
 	 */
-	rescue(): void {
+	rescue(step = 0): void {
 		const ctx = this.getCtx();
 		if (!ctx) {
 			return;
 		}
-		this.note(ctx, freq("E6"), 0.0, 0.07, "square", 0.6);
-		this.note(ctx, freq("A6"), 0.07, 0.08, "square", 0.6);
+		// C major pentatonic, ascending, wrapping an octave higher each cycle.
+		const scale = ["C5", "D5", "E5", "G5", "A5", "C6", "D6", "E6", "G6", "A6"];
+		const lead = scale[step % scale.length];
+		const octaveUp = Math.floor(step / scale.length); // subtle extra lift
+		const f = freq(lead) * 2 ** octaveUp;
+		this.note(ctx, f, 0.0, 0.12, "triangle", 0.6);
+		// Magical sparkle a perfect-octave above, quieter + shorter.
+		this.note(ctx, f * 2, 0.02, 0.09, "square", 0.18);
 	}
 
 	/**

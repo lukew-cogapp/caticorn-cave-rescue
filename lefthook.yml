@@ -7,3 +7,5 @@ pre-commit:
       stage_fixed: true
     - name: typecheck
       run: npx astro check
+    - name: test
+      run: npm test
