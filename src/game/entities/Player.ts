@@ -16,6 +16,18 @@ const ACCEL = 2600;
 /** Horizontal deceleration applied as friction when no input (px/sec^2). */
 const FRICTION = 2200;
 
+/** Grace window after leaving a ledge where a ground jump still fires (s). */
+const COYOTE_TIME = 0.1;
+/** Window before landing within which a jump press is remembered + fired (s). */
+const JUMP_BUFFER = 0.1;
+/** Upward-velocity multiplier when the jump key is released early (jump-cut). */
+const JUMP_CUT = 0.45;
+/** Below this |vy|, gravity is softened for a floaty apex hang. */
+const APEX_THRESHOLD = 90;
+/** Gravity multiplier near the jump apex (hang) and while falling (snappier). */
+const APEX_GRAVITY = 0.6;
+const FALL_GRAVITY = 1.45;
+
 /**
  * The player character: a caticorn rescuer with skid-eased horizontal movement,
  * gravity, jumping, world-bound clamping, and one-way platform landing.
@@ -51,6 +63,12 @@ export class Player extends Entity {
 	landedFromDoubleJump = false;
 	/** Tracks whether the current airtime has used the second (air) jump. */
 	private doubleJumpedThisAir = false;
+	/** Time left in the coyote-jump grace window (s). */
+	private coyoteTimer = 0;
+	/** Time left to honour a buffered jump press (s). */
+	private bufferTimer = 0;
+	/** True while a real jump's rise can still be cut by releasing the key. */
+	private cuttable = false;
 
 	/** True while the poop effect is active (slowed, brown feet, no jumping). */
 	private poopAffected = false;
@@ -86,31 +104,54 @@ export class Player extends Entity {
 			}
 		}
 
-		// Edge-triggered jump with one mid-air double jump. The first press from
-		// the ground jumps; a second press in the air jumps again. Holding the
-		// key does nothing until released and pressed again.
+		// Edge-triggered jump with coyote time, jump buffering, double jump, and
+		// release-to-cut variable height.
 		const jumpPressed = jump && !this.jumpHeld;
 		const wasOnGround = this.onGround;
 		if (this.onGround) {
 			this.jumpsUsed = 0;
 			this.doubleJumpedThisAir = false;
+			this.coyoteTimer = COYOTE_TIME;
+		} else {
+			this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
 		}
+		// Remember a press briefly so one made just before landing still fires.
+		this.bufferTimer = jumpPressed
+			? JUMP_BUFFER
+			: Math.max(0, this.bufferTimer - dt);
+
 		// Poop-stuck feet can't jump (ground or air) until the effect wears off.
-		if (
-			jumpPressed &&
-			!this.poopAffected &&
-			this.jumpsUsed < Player.MAX_JUMPS
-		) {
-			this.vel.y = JUMP_VELOCITY;
-			this.onGround = false;
-			this.jumpsUsed += 1;
-			if (this.jumpsUsed >= 2) this.doubleJumpedThisAir = true;
-			this.squash = 0.5; // pop tall on take-off
+		if (this.bufferTimer > 0 && !this.poopAffected) {
+			// The first jump is available from the ground OR within coyote time;
+			// the second (air) jump is available until MAX_JUMPS is spent.
+			const canGroundJump = this.jumpsUsed === 0 && this.coyoteTimer > 0;
+			const canAirJump =
+				this.jumpsUsed > 0 && this.jumpsUsed < Player.MAX_JUMPS;
+			if (canGroundJump || canAirJump) {
+				this.vel.y = JUMP_VELOCITY;
+				this.onGround = false;
+				this.coyoteTimer = 0;
+				this.bufferTimer = 0;
+				this.cuttable = true;
+				// A ground-eligible first jump counts as jump #1; otherwise it's #2.
+				this.jumpsUsed = canGroundJump ? 1 : this.jumpsUsed + 1;
+				if (this.jumpsUsed >= 2) this.doubleJumpedThisAir = true;
+				this.squash = 0.5; // pop tall on take-off
+			}
 		}
+		// Variable height: releasing the key while still rising cuts the jump short.
+		if (!jump && this.cuttable && this.vel.y < 0) {
+			this.vel.y *= JUMP_CUT;
+			this.cuttable = false;
+		}
+		if (this.vel.y >= 0) this.cuttable = false;
 		this.jumpHeld = jump;
 
-		// Gravity.
-		this.vel.y += GRAVITY * dt;
+		// Gravity, scaled for a floaty apex and a snappier fall (Celeste-style).
+		let gScale = 1;
+		if (this.vel.y > 0) gScale = FALL_GRAVITY;
+		else if (Math.abs(this.vel.y) < APEX_THRESHOLD) gScale = APEX_GRAVITY;
+		this.vel.y += GRAVITY * gScale * dt;
 
 		// Integrate horizontal position, clamped to world bounds.
 		this.pos.x += this.vel.x * dt;
@@ -186,6 +227,8 @@ export class Player extends Entity {
 		this.vel.y = velocity;
 		this.onGround = false;
 		this.jumpsUsed = 0;
+		// A trampoline launch isn't a held jump, so it can't be cut short.
+		this.cuttable = false;
 	}
 
 	/** Vertical velocity, for the Game loop to detect a falling landing. */

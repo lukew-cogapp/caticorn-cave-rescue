@@ -45,6 +45,10 @@ const CAMERA_LERP = 8;
 const HARD_LAND_SPEED = 520;
 /** Upward hop given to the player after a successful stomp. */
 const STOMP_BOUNCE = -380;
+/** Hit-stop freeze on a stomp (s) — a short punchy pause. */
+const FREEZE_STOMP = 0.06;
+/** Hit-stop freeze on death (s) — longer for weight. */
+const FREEZE_DEATH = 0.12;
 /**
  * How far the player's feet may sit below a monster's top and still count as a
  * stomp rather than a side hit, in pixels.
@@ -88,6 +92,8 @@ export class Game {
 	private elapsed = 0;
 	/** Remaining seconds of poop slow/stuck effect (lingers after leaving). */
 	private poopTimer = 0;
+	/** Hit-stop: while > 0, the sim is frozen (particles/shake still animate). */
+	private freezeTimer = 0;
 	private status: GameStatus = "playing";
 	/** False until start() loads the first level; gates the simulation loop. */
 	private started = false;
@@ -217,6 +223,7 @@ export class Game {
 		this.particles.clear();
 		this.shake.reset();
 		this.poopTimer = 0;
+		this.freezeTimer = 0;
 
 		// Background gradient + cave mood.
 		this.world.addChild(drawBackground(this.level.worldWidth, this.level.bg));
@@ -351,6 +358,13 @@ export class Game {
 		this.particles.update(dt);
 		this.shake.update(dt);
 
+		// Hit-stop: briefly freeze the gameplay sim on impactful events (stomp /
+		// death) for a punchy pause. Particles + shake above keep animating.
+		if (this.freezeTimer > 0) {
+			this.freezeTimer -= dt;
+			return;
+		}
+
 		// Death animation overrides normal play until it finishes.
 		if (this.death) {
 			this.updateDeath(dt);
@@ -450,6 +464,7 @@ export class Game {
 				this.player.bounce(STOMP_BOUNCE);
 				this.particles.burst(m.pos.x, m.pos.y - mBox.h / 2, "puff", 8);
 				this.shake.add(3);
+				this.freezeTimer = FREEZE_STOMP;
 				this.audio.rescue();
 			} else {
 				this.beginDeath();
@@ -534,6 +549,7 @@ export class Game {
 	private beginDeath(): void {
 		this.audio.hurt();
 		this.shake.add(7);
+		this.freezeTimer = FREEZE_DEATH;
 		const ghost = drawGhost(this.variant);
 		ghost.x = this.player.pos.x;
 		ghost.y = this.player.pos.y;
