@@ -1,0 +1,32 @@
+---
+import { EN } from "../game/strings/en";
+---
+
+<!-- Touch controls: a full-stage overlay split into a left MOVE zone (a
+     floating virtual joystick spawns where you press) and a right JUMP
+     zone (tap/hold anywhere). Shown only on touch devices. The joystick
+     base + nub are positioned by script at the touch point. -->
+<div
+	id="touch-controls"
+	class="pointer-events-none absolute inset-0 z-30 hidden select-none"
+>
+	<!-- Left half: move zone (virtual joystick). -->
+	<div
+		id="touch-move-zone"
+		class="pointer-events-auto absolute inset-y-0 left-0 w-1/2 touch-none"
+		aria-label={EN.moveLeft}
+	>
+	</div>
+	<!-- Right half: jump zone. nipplejs renders the joystick into the left
+	     zone itself, so no custom stick markup is needed. -->
+	<div
+		id="touch-jump-zone"
+		class="pointer-events-auto absolute inset-y-0 right-0 flex w-1/2 touch-none items-end justify-end p-4"
+		aria-label={EN.jump}
+	>
+		<span
+			class="rounded-full bg-amber-400/25 px-4 py-2 text-xs font-bold text-amber-100/80"
+			>{EN.jump}</span
+		>
+	</div>
+</div>
