@@ -8,7 +8,7 @@ export {
 	drawPlayer,
 	type PlayerVariant,
 } from "./characters";
-export { drawFirefly, drawParticle } from "./particles";
+export { drawFirefly, drawParticle, drawRescueRing } from "./particles";
 export {
 	drawCage,
 	drawExit,
