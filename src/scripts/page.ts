@@ -7,6 +7,7 @@
  * overlay, and starts a run. The markup it drives lives in `index.astro` and
  * its components; this module only looks elements up by id.
  */
+import nipplejs from "nipplejs";
 import { Application } from "pixi.js";
 import { drawPlayer, type PlayerVariant } from "../game/art";
 import { bootGame, CHARACTERS, type HudState } from "../game/caticorn";
@@ -401,7 +402,6 @@ function setDir(dir: "ArrowLeft" | "ArrowRight" | null) {
 }
 
 if (isTouch) {
-	const nipplejs = (await import("nipplejs")).default;
 	const manager = nipplejs.create({
 		zone: moveZone,
 		mode: "dynamic",
@@ -417,25 +417,16 @@ if (isTouch) {
 			on(ev: string, cb: (...args: unknown[]) => void): void;
 		}
 	).on.bind(manager);
-	// Map stick movement to a digital left/right. nipplejs's move payload varies
-	// by version, so read the horizontal component defensively: prefer
-	// `vector.x` (−1..1), fall back to the angle (`angle.radian`) or a
-	// `direction.x` string. Using the live value each move means dragging further
-	// only sustains the direction, never stops it.
+	// Map stick movement to a digital left/right. nipplejs calls the handler with
+	// a single { type, target, data } object — the joystick output (vector etc.)
+	// is on `.data`, NOT a second argument. Reading the wrong arg was why the
+	// stick moved visually but never moved the player. Using the live vector each
+	// move means dragging further only sustains the direction, never stops it.
 	on("move", (...args: unknown[]) => {
-		const data = args[1] as {
-			vector?: { x: number; y: number };
-			angle?: { radian?: number };
-			direction?: { x?: string };
+		const evt = args[0] as {
+			data?: { vector?: { x: number; y: number } };
 		};
-		let x = data?.vector?.x;
-		if (x === undefined && typeof data?.angle?.radian === "number") {
-			x = Math.cos(data.angle.radian);
-		}
-		if (x === undefined && data?.direction?.x) {
-			x = data.direction.x === "left" ? -1 : 1;
-		}
-		x ??= 0;
+		const x = evt?.data?.vector?.x ?? 0;
 		if (x <= -0.3) setDir("ArrowLeft");
 		else if (x >= 0.3) setDir("ArrowRight");
 		else setDir(null);

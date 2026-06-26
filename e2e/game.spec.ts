@@ -148,3 +148,67 @@ test("walk right into the pits and the game survives", async ({ page }) => {
 		await expect(page.locator("#run-summary")).toHaveText(/Game over/i);
 	}
 });
+
+// ---------------------------------------------------------------------------
+// Test 4: mobile virtual joystick moves the player
+// ---------------------------------------------------------------------------
+
+/**
+ * Runs in a touch-enabled context so the nipplejs joystick initialises. We can't
+ * read the player's x from the DOM, so we instrument the engine's input bridge:
+ * page.ts dispatches KeyboardEvent("keydown", {key:"ArrowLeft"/"ArrowRight"}) on
+ * window when the stick is pushed. We listen for those on window and assert a
+ * horizontal key fires when we drag the move zone. This is exactly the path that
+ * was silently broken (nipplejs payload read), so it guards the regression.
+ */
+test.describe("mobile joystick", () => {
+	test.use({ hasTouch: true });
+
+	test("dragging the move zone fires a horizontal move key", async ({
+		page,
+	}) => {
+		await bootAndWaitForStartScreen(page);
+		await startRun(page, "aubrey");
+
+		// Record arrow keydowns dispatched on window (the engine's input source).
+		await page.evaluate(() => {
+			(window as unknown as { __moveKeys: string[] }).__moveKeys = [];
+			window.addEventListener("keydown", (e) => {
+				if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+					(window as unknown as { __moveKeys: string[] }).__moveKeys.push(
+						e.key,
+					);
+				}
+			});
+		});
+
+		// Drag inside the left move zone: press near its centre, then drag right
+		// far enough to clear the joystick threshold. nipplejs (dynamic mode)
+		// spawns the stick on the first touch and reports the vector as we move.
+		const zone = page.locator("#touch-move-zone");
+		const box = await zone.boundingBox();
+		if (!box) throw new Error("move zone has no box");
+		const cx = box.x + box.width / 2;
+		const cy = box.y + box.height / 2;
+
+		// Drive the stick with REAL browser input (page.mouse), which dispatches
+		// genuine pointer events with the internal state nipplejs tracks —
+		// synthetic dispatched events don't wake it. nipplejs (dynamic) spawns the
+		// stick on press, then reports the vector as the pointer drags right.
+		await page.mouse.move(cx, cy);
+		await page.mouse.down();
+		await page.mouse.move(cx + 40, cy, { steps: 4 });
+		await page.mouse.move(cx + 75, cy, { steps: 6 });
+
+		// Give nipplejs a moment to emit, then assert a horizontal key fired.
+		await page.waitForTimeout(400);
+		const keys = await page.evaluate(
+			() => (window as unknown as { __moveKeys: string[] }).__moveKeys,
+		);
+		await page.mouse.up();
+		expect(
+			keys.length,
+			"no ArrowLeft/Right fired from the joystick",
+		).toBeGreaterThan(0);
+	});
+});
