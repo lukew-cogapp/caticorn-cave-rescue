@@ -1,17 +1,21 @@
 /**
  * Service worker for Caticorn Cave Rescue.
  *
- * Strategy: cache-first for same-origin GETs, with a versioned cache name so
- * old entries are purged on activate. Keeps the game launchable offline after
- * the first visit.
+ * Strategy (so new deploys always win, but the game still works offline):
+ * - NAVIGATIONS / HTML (the entry document): network-FIRST, falling back to the
+ *   cache only when offline. The HTML references content-hashed asset URLs, so
+ *   serving fresh HTML means a returning player always pulls the latest build's
+ *   JS/CSS rather than being pinned to a stale shell by the SW.
+ * - Everything else same-origin (the hashed /_astro/* bundles, icons, manifest):
+ *   cache-FIRST — they're immutable per build (the hash changes when content
+ *   changes), so caching them is safe + fast and gives offline support.
  *
- * Cache version: bump CACHE_VERSION when you want all clients to refetch assets
- * (e.g. after a significant release). The activate handler deletes any cache
- * whose name starts with CACHE_PREFIX but doesn't match the current version.
+ * Versioned cache name; the activate handler purges old versions. Bump
+ * CACHE_VERSION on a significant release to force a full refetch.
  */
 
 const CACHE_PREFIX = "caticorn-";
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
 
 /** Resources to pre-cache on install (the app shell). */
@@ -53,18 +57,32 @@ self.addEventListener("fetch", (event) => {
 		return;
 	}
 
+	const cacheable = (response) =>
+		response && response.status === 200 && response.type === "basic";
+	const store = (response) => {
+		const clone = response.clone();
+		caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+		return response;
+	};
+
+	if (request.mode === "navigate" || request.destination === "document") {
+		// Network-first for the entry HTML so fresh builds (new hashed assets)
+		// always win; fall back to the cached shell only when offline.
+		event.respondWith(
+			fetch(request)
+				.then((response) => (cacheable(response) ? store(response) : response))
+				.catch(() => caches.match(request).then((c) => c ?? caches.match("/"))),
+		);
+		return;
+	}
+
+	// Cache-first for hashed/static assets: immutable per build, fast + offline.
 	event.respondWith(
 		caches.match(request).then((cached) => {
 			if (cached) return cached;
-			return fetch(request).then((response) => {
-				// Only cache successful same-origin responses (skip 4xx, opaque, etc.).
-				if (!response || response.status !== 200 || response.type !== "basic") {
-					return response;
-				}
-				const clone = response.clone();
-				caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-				return response;
-			});
+			return fetch(request).then((response) =>
+				cacheable(response) ? store(response) : response,
+			);
 		}),
 	);
 });
