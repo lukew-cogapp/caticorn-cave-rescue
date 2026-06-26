@@ -168,16 +168,20 @@ just palette + lighting + a hook or two.
 
 ## Gameplay summary
 
-Pick a hero (Aubrey/strawberry, Quinn/acorn, Summer/big-hair, Hallie/crystal),
-free every caticorn in a cave, then reach the glowing exit. Clear six caves to
-win. Each run picks a random 6 of ~14 bespoke themes (cherry blossom, crystal,
-ice, crypt, grove, molten, disco, tropical, Brighton beach, halloween, cat,
-minecraft, mario, candy) in random order — each with its own background
-silhouettes, floor/platform skin, decor, ambient particle, lighting and a
-one-shot music sting; some have a signature mechanic (ice = slippery, molten =
-hazard-dense, grove = bouncy ground) and several reskin the monsters (crypt
-skeletons/ghosts, minecraft creeper, mario goomba, cat cats, disco bots). The
-final cave is guarded by the "Luke" boss (a sword-swinging crawler).
+Pick a hero (Aubrey/strawberry, Quinn/acorn, Summer/big-hair, Hallie/crystal,
+Ruth/glasses), free every caticorn in a cave, then reach the glowing exit. Clear
+six caves to win. Each run picks a random 6 of ~14 bespoke themes (cherry
+blossom, crystal, ice, crypt, grove, molten, disco, tropical, Brighton beach,
+halloween, cat, minecraft, mario, candy) in random order — each with its own
+background silhouettes, floor/platform skin, decor, accent-tinted cages/shackles,
+ambient particle, lighting and a one-shot music sting; some have a signature
+mechanic (ice = slippery, molten = hazard-dense, grove = bouncy ground) and ALL
+reskin their monsters via `monsterSkin` (crypt skeletons/ghosts, minecraft
+creeper, mario goomba/koopa/piranha, cat cats, seaside crab/seagull, etc.). A
+couple of themes also reskin the rescuable CAPTIVES via the `style` arg on
+`drawCaticorn` (tropical = blue koala-alien with the horn kept; mario =
+Peach-style princess). The final cave is guarded by the "Luke" boss (a
+sword-swinging crawler stationed in front of the exit).
 
 - **Movement**: skid-eased run, coyote time + jump buffering + variable-height
   jump, double jump, apex-hang gravity, idle breathing. **P** pauses (desktop).
