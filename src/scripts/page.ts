@@ -401,8 +401,23 @@ function setDir(dir: "ArrowLeft" | "ArrowRight" | null) {
 	if (heldDir) keyDown(heldDir);
 }
 
-if (isTouch) {
-	const manager = nipplejs.create({
+// Control style: "joystick" (nipplejs virtual stick) or "buttons" (plain
+// left/right D-pad). Remembered across sessions in localStorage so the player
+// only picks once. Default to the joystick.
+const CONTROL_PREF_KEY = "caticorn:touch-control";
+type ControlMode = "joystick" | "buttons";
+function readControlMode(): ControlMode {
+	return localStorage.getItem(CONTROL_PREF_KEY) === "buttons"
+		? "buttons"
+		: "joystick";
+}
+
+// nipplejs is created lazily the first time joystick mode is active (creating it
+// against a hidden zone gives it a zero-size area). Once made, we just keep it.
+let joystick: ReturnType<typeof nipplejs.create> | null = null;
+function ensureJoystick() {
+	if (joystick) return;
+	joystick = nipplejs.create({
 		zone: moveZone,
 		mode: "dynamic",
 		// Soft translucent white so the stick is subtle, not a bright yellow blob.
@@ -414,10 +429,10 @@ if (isTouch) {
 	// nipplejs's `.on` overloads are over-narrow for our event names, so bind
 	// through a loosened handle.
 	const on = (
-		manager as unknown as {
+		joystick as unknown as {
 			on(ev: string, cb: (...args: unknown[]) => void): void;
 		}
-	).on.bind(manager);
+	).on.bind(joystick);
 	// Map stick movement to a digital left/right. nipplejs calls the handler with
 	// a single { type, target, data } object — the joystick output (vector etc.)
 	// is on `.data`, NOT a second argument. Reading the wrong arg was why the
@@ -435,6 +450,67 @@ if (isTouch) {
 	on("end", () => setDir(null));
 	on("dir:left", () => setDir("ArrowLeft"));
 	on("dir:right", () => setDir("ArrowRight"));
+}
+
+// Plain left/right buttons: press holds the direction, release/leave clears it.
+const dpad = document.getElementById("touch-dpad") as HTMLDivElement;
+if (isTouch) {
+	for (const [id, dir] of [
+		["touch-left", "ArrowLeft"],
+		["touch-right", "ArrowRight"],
+	] as const) {
+		const btn = document.getElementById(id) as HTMLButtonElement;
+		btn.addEventListener(
+			"touchstart",
+			(e) => {
+				e.preventDefault();
+				setDir(dir);
+			},
+			{ passive: false },
+		);
+		const clear = (e: TouchEvent) => {
+			e.preventDefault();
+			setDir(null);
+		};
+		btn.addEventListener("touchend", clear, { passive: false });
+		btn.addEventListener("touchcancel", clear, { passive: false });
+	}
+}
+
+// Switch between joystick and D-pad: show one set of controls, hide the other,
+// and stop any held direction so a swap can't leave the player stuck moving.
+function applyControlMode(mode: ControlMode) {
+	if (!isTouch) return;
+	setDir(null);
+	const useButtons = mode === "buttons";
+	moveZone.classList.toggle("hidden", useButtons);
+	dpad.classList.toggle("hidden", !useButtons);
+	dpad.classList.toggle("flex", useButtons);
+	if (!useButtons) ensureJoystick();
+}
+applyControlMode(readControlMode());
+
+// Wire up the start-screen control-style picker (touch only). Pills reflect the
+// stored choice; tapping one persists + applies it.
+if (isTouch) {
+	const pref = document.getElementById("control-pref") as HTMLDivElement;
+	pref.classList.remove("hidden");
+	pref.classList.add("flex");
+	const pills = pref.querySelectorAll<HTMLButtonElement>("[data-control]");
+	function syncPills(mode: ControlMode) {
+		for (const pill of pills) {
+			pill.dataset.active = String(pill.dataset.control === mode);
+		}
+	}
+	for (const pill of pills) {
+		pill.addEventListener("click", () => {
+			const mode = pill.dataset.control as ControlMode;
+			localStorage.setItem(CONTROL_PREF_KEY, mode);
+			syncPills(mode);
+			applyControlMode(mode);
+		});
+	}
+	syncPills(readControlMode());
 }
 
 // Jump zone: any touch on the right half holds jump until released.

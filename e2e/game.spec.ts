@@ -211,4 +211,56 @@ test.describe("mobile joystick", () => {
 			"no ArrowLeft/Right fired from the joystick",
 		).toBeGreaterThan(0);
 	});
+
+	/**
+	 * Buttons control style: the player can swap the joystick for plain
+	 * left/right buttons and the choice is remembered. We seed the stored pref
+	 * BEFORE boot, then assert page.ts honours it (D-pad shown, joystick zone
+	 * hidden) and that holding the right button fires the ArrowRight the engine
+	 * listens for — the same input bridge the joystick uses.
+	 */
+	test("buttons mode is remembered and the right button moves the player", async ({
+		page,
+	}) => {
+		// Seed the remembered preference before the controller reads it on boot.
+		await page.addInitScript(() => {
+			localStorage.setItem("caticorn:touch-control", "buttons");
+		});
+
+		await bootAndWaitForStartScreen(page);
+
+		// The stored pref is reflected on the start-screen picker (Buttons active).
+		await expect(
+			page.locator('#control-pref [data-control="buttons"]'),
+		).toHaveAttribute("data-active", "true");
+
+		await startRun(page, "aubrey");
+
+		// D-pad is shown and the joystick move zone is hidden.
+		await expect(page.locator("#touch-dpad")).toBeVisible();
+		await expect(page.locator("#touch-move-zone")).toBeHidden();
+
+		// Listen for the engine's input source (arrow keydowns on window).
+		await page.evaluate(() => {
+			(window as unknown as { __moveKeys: string[] }).__moveKeys = [];
+			window.addEventListener("keydown", (e) => {
+				if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+					(window as unknown as { __moveKeys: string[] }).__moveKeys.push(
+						e.key,
+					);
+				}
+			});
+		});
+
+		// Tap the right button (a real touch tap fires its touchstart handler).
+		await page.locator("#touch-right").tap();
+		await page.waitForTimeout(200);
+
+		const keys = await page.evaluate(
+			() => (window as unknown as { __moveKeys: string[] }).__moveKeys,
+		);
+		expect(keys, "right button did not fire ArrowRight").toContain(
+			"ArrowRight",
+		);
+	});
 });

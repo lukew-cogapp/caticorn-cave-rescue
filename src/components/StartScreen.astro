@@ -40,6 +40,31 @@ import { EN } from "../game/strings/en";
 		<!-- Cards injected by script (one per CHARACTERS entry). -->
 	</div>
 
+	<!-- Touch control-style picker: only shown on touch devices (script removes
+	     `hidden`). Lets the player swap the virtual joystick for plain
+	     left/right buttons; the choice is remembered in localStorage. -->
+	<div id="control-pref" class="mt-5 hidden flex-col items-center gap-1.5">
+		<span class="text-xs font-semibold uppercase tracking-wide text-indigo-300">
+			{EN.controlStyle}
+		</span>
+		<div class="flex gap-2">
+			<button
+				type="button"
+				data-control="joystick"
+				class="rounded-full px-4 py-1.5 text-sm font-semibold ring-1 ring-white/20 transition data-[active=true]:bg-amber-400 data-[active=true]:text-stone-900 data-[active=false]:bg-white/10 data-[active=false]:text-amber-100"
+			>
+				{EN.controlJoystick}
+			</button>
+			<button
+				type="button"
+				data-control="buttons"
+				class="rounded-full px-4 py-1.5 text-sm font-semibold ring-1 ring-white/20 transition data-[active=true]:bg-amber-400 data-[active=true]:text-stone-900 data-[active=false]:bg-white/10 data-[active=false]:text-amber-100"
+			>
+				{EN.controlButtons}
+			</button>
+		</div>
+	</div>
+
 	<!-- Start button: clear space from the cards (this was the cramped gap). -->
 	<button
 		id="start-btn"

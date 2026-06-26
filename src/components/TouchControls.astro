@@ -10,12 +10,36 @@ import { EN } from "../game/strings/en";
 	id="touch-controls"
 	class="pointer-events-none absolute inset-0 z-30 hidden select-none"
 >
-	<!-- Left half: move zone (virtual joystick). -->
+	<!-- Left half: move zone (virtual joystick). Hidden when the player picks
+	     the D-pad control style. -->
 	<div
 		id="touch-move-zone"
 		class="pointer-events-auto absolute inset-y-0 left-0 w-1/2 touch-none"
 		aria-label={EN.moveLeft}
 	>
+	</div>
+	<!-- Alternate left controls: simple left/right buttons. Hidden unless the
+	     player picks the D-pad control style (toggled by script). -->
+	<div
+		id="touch-dpad"
+		class="pointer-events-none absolute bottom-4 left-4 hidden gap-3 touch-none"
+	>
+		<button
+			id="touch-left"
+			type="button"
+			aria-label={EN.moveLeft}
+			class="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/25 text-2xl font-bold text-white/80 ring-1 ring-white/30 active:bg-white/40"
+		>
+			◀
+		</button>
+		<button
+			id="touch-right"
+			type="button"
+			aria-label={EN.moveRight}
+			class="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/25 text-2xl font-bold text-white/80 ring-1 ring-white/30 active:bg-white/40"
+		>
+			▶
+		</button>
 	</div>
 	<!-- Right half: the whole right side IS the jump zone (tap/hold anywhere) —
 	     no button needed, just a faint corner hint. -->

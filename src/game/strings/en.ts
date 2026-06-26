@@ -70,6 +70,11 @@ export const EN = {
 	moveRight: "Move right",
 	jump: "Jump",
 
+	/** Touch control-style picker (start screen, touch devices only). */
+	controlStyle: "Touch controls",
+	controlJoystick: "Joystick",
+	controlButtons: "Buttons",
+
 	/** Shown on portrait phones prompting the player to turn the device. */
 	rotateHint: "Rotate your device to landscape to play",
 
