@@ -21,6 +21,12 @@ const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
 /** Resources to pre-cache on install (the app shell). */
 const PRECACHE_URLS = ["/", "/favicon.svg", "/manifest.webmanifest"];
 
+// Let the page trigger an immediate activation of a waiting worker (so updates
+// apply without the user having to close every tab).
+self.addEventListener("message", (event) => {
+	if (event.data === "skipWaiting") self.skipWaiting();
+});
+
 self.addEventListener("install", (event) => {
 	event.waitUntil(
 		caches

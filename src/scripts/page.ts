@@ -504,10 +504,34 @@ document.addEventListener("fullscreenchange", () => {
 window.addEventListener("resize", syncFullscreenSize);
 
 // --- Service worker registration ---
+// Register + auto-apply updates so a returning player is never stuck on a stale
+// cached build: when a new SW finishes installing while an old one still
+// controls the page, tell it to skip waiting and reload once it takes over.
 if ("serviceWorker" in navigator) {
-	navigator.serviceWorker.register("/sw.js").catch(() => {
-		/* SW registration failed (e.g. file not found in dev); silently ignore */
+	let reloading = false;
+	navigator.serviceWorker.addEventListener("controllerchange", () => {
+		if (reloading) return;
+		reloading = true;
+		window.location.reload();
 	});
+	navigator.serviceWorker
+		.register("/sw.js")
+		.then((reg) => {
+			reg.addEventListener("updatefound", () => {
+				const sw = reg.installing;
+				if (!sw) return;
+				sw.addEventListener("statechange", () => {
+					// A new worker installed while an old one is still in control →
+					// activate it immediately (it will then controllerchange + reload).
+					if (sw.state === "installed" && navigator.serviceWorker.controller) {
+						sw.postMessage("skipWaiting");
+					}
+				});
+			});
+		})
+		.catch(() => {
+			/* SW registration failed (e.g. file not found in dev); silently ignore */
+		});
 }
 
 // --- PWA install prompt ---
