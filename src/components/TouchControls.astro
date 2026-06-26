@@ -17,16 +17,15 @@ import { EN } from "../game/strings/en";
 		aria-label={EN.moveLeft}
 	>
 	</div>
-	<!-- Right half: jump zone. nipplejs renders the joystick into the left
-	     zone itself, so no custom stick markup is needed. -->
+	<!-- Right half: the whole right side IS the jump zone (tap/hold anywhere) —
+	     no button needed, just a faint corner hint. -->
 	<div
 		id="touch-jump-zone"
-		class="pointer-events-auto absolute inset-y-0 right-0 flex w-1/2 touch-none items-end justify-end p-4"
+		class="pointer-events-auto absolute inset-y-0 right-0 flex w-1/2 touch-none items-end justify-end p-3"
 		aria-label={EN.jump}
 	>
-		<span
-			class="rounded-full bg-amber-400/25 px-4 py-2 text-xs font-bold text-amber-100/80"
-			>{EN.jump}</span
+		<span class="text-[10px] font-semibold tracking-wide text-amber-100/35"
+			>tap to jump</span
 		>
 	</div>
 </div>

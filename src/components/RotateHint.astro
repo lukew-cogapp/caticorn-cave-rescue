@@ -10,3 +10,14 @@ import { EN } from "../game/strings/en";
 	<div class="text-4xl" aria-hidden="true">⟳</div>
 	<p class="text-lg font-bold">{EN.rotateHint}</p>
 </div>
+
+<style>
+	/* On portrait touch devices (coarse pointer), reveal the rotate prompt. The
+	   rule lives here (not in index.astro) so Astro's scoped styles match this
+	   component's own #rotate-hint element. */
+	@media (orientation: portrait) and (pointer: coarse) {
+		#rotate-hint {
+			display: flex;
+		}
+	}
+</style>

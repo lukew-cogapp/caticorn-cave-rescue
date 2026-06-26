@@ -108,14 +108,6 @@ import Layout from "../layouts/Layout.astro";
 		height: 100vh !important;
 	}
 
-	/* On portrait touch devices (coarse pointer), prompt to rotate. Hidden on
-	   desktop and on landscape phones/tablets. */
-	@media (orientation: portrait) and (pointer: coarse) {
-		#rotate-hint {
-			display: flex;
-		}
-	}
-
 	/* Short landscape (phones held sideways): drop the page header + padding so
 	   the game frame fills the viewport and the start screen isn't pushed off
 	   the bottom. The in-canvas title already carries the branding. */

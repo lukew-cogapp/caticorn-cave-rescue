@@ -171,6 +171,8 @@ function buildCaticorn(opts: {
 	alien?: boolean;
 	/** Draw clear round glasses over the eyes (Ruth). */
 	glasses?: boolean;
+	/** Draw a little princess crown above the ears (the mario "Peach" captive). */
+	princess?: boolean;
 }): Container {
 	const c = new Container();
 	const g = new Graphics();
@@ -314,6 +316,24 @@ function buildCaticorn(opts: {
 		g.moveTo(-0.6, -41)
 			.lineTo(0.6, -41)
 			.stroke({ color: 0xe7d6a0, width: 1.4, cap: "round" });
+	}
+
+	// Optional little princess crown above the ears (mario "Peach" captive): a
+	// gold band with three points + jewels, sitting on the head.
+	if (opts.princess) {
+		g.moveTo(-8, -55)
+			.lineTo(-8, -60)
+			.lineTo(-4, -57)
+			.lineTo(0, -62)
+			.lineTo(4, -57)
+			.lineTo(8, -60)
+			.lineTo(8, -55)
+			.closePath()
+			.fill("#ffd23f");
+		g.rect(-8, -56, 16, 2).fill("#e0b020"); // band base
+		g.circle(0, -60, 1.4).fill("#ff5d8f"); // centre jewel
+		g.circle(-8, -59, 1).fill("#5ad1c8");
+		g.circle(8, -59, 1).fill("#5ad1c8");
 	}
 
 	// Optional little hat above/between the ears (drawn last so it sits on top).
@@ -559,6 +579,37 @@ export function drawCaticorn(
 			sad: !happy,
 			alien: true,
 			// Keep a bright caticorn horn so it's still a caticorn.
+			horn: "#ffd23f",
+		});
+	}
+	// Mario caves render captives as princess caticorns (Peach-style): a pink
+	// gown body, blonde mane and a little crown, keeping the horn.
+	if (style === "mario") {
+		const princesses: CaticornPalette[] = [
+			{
+				body: "#ff9ec9",
+				bodyDark: "#e06fa8",
+				mane: ["#ffe07a", "#fff3c4", "#e0b020"],
+			},
+			{
+				body: "#ffb3d9",
+				bodyDark: "#e88abf",
+				mane: ["#ffd86b", "#fff0b0", "#d9a020"],
+			},
+			{
+				body: "#ff8fc0",
+				bodyDark: "#d96fa0",
+				mane: ["#ffe79a", "#fff6d6", "#e0b840"],
+			},
+		];
+		const q = princesses[paletteIndex % princesses.length];
+		return buildCaticorn({
+			body: q.body,
+			bodyDark: q.bodyDark,
+			ear: q.body,
+			mane: q.mane,
+			sad: !happy,
+			princess: true,
 			horn: "#ffd23f",
 		});
 	}
