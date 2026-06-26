@@ -405,7 +405,8 @@ if (isTouch) {
 	const manager = nipplejs.create({
 		zone: moveZone,
 		mode: "dynamic",
-		color: "#fbbf24",
+		// Soft translucent white so the stick is subtle, not a bright yellow blob.
+		color: "rgba(255, 255, 255, 0.35)",
 		size: 110,
 		threshold: 0.25, // fraction of the radius before a direction registers
 		restJoystick: true,
