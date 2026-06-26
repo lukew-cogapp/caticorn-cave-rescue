@@ -232,7 +232,7 @@ export function loadScene(
 
 	// Caticorns to rescue.
 	for (const spec of level.caticorns) {
-		const cat = Caticorn.create(spec, level.themeAccent);
+		const cat = Caticorn.create(spec, level.themeAccent, level.themeStyle);
 		caticorns.push(cat);
 		world.addChild(cat.view);
 	}

@@ -1,4 +1,9 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawBarnacleLurker,
+	drawCrabCrawler,
+	drawSeagullBat,
+} from "../../art/themes/beach/monsters";
 import { tint, wobble } from "../../art/util";
 import { GAME_HEIGHT } from "../../types";
 import type { FloorTones, PlatformTones, Rng, ThemePack } from "../theme-pack";
@@ -309,31 +314,22 @@ export const beachPack: ThemePack = {
 		}
 	},
 
-	monsterFlourish(
-		_c: Container,
-		f: Graphics,
+	/**
+	 * Full per-kind monster reskins for Brighton Beach (Pebble Pier):
+	 *   - crawler → shingle crab (grey-orange shell, claws, eye-stalks)
+	 *   - bat     → chip-stealing seagull (white-grey plumage, orange beak, wings)
+	 *   - lurker  → barnacle cluster hanging from the ceiling (downward from y=0)
+	 *
+	 * All three keep the base gameplay footprint and origin conventions. When this
+	 * hook fires, `monsterFlourish` is skipped entirely.
+	 */
+	monsterSkin(
 		kind: "crawler" | "bat" | "lurker",
-		isLurker: boolean,
-		headY: number,
-		hw: number,
-	): void {
-		// Seagull touch: a small white "M" wing glyph above/beside the monster head
-		// and a faint off-white beak stripe — subtle, never obscuring eyes/fangs.
-		const wingY = isLurker ? -4 : headY - 10;
-		const wingSpan = kind === "crawler" ? hw * 0.7 : hw * 0.55;
-
-		// Two curved wing arcs forming a "M" silhouette.
-		f.moveTo(-wingSpan, wingY + 4)
-			.quadraticCurveTo(-wingSpan * 0.5, wingY - 3, 0, wingY)
-			.quadraticCurveTo(wingSpan * 0.5, wingY - 3, wingSpan, wingY + 4)
-			.stroke({ color: 0xf0eee8, width: 1.2, alpha: 0.55, cap: "round" });
-
-		// Tiny yellow-orange beak dot beside head.
-		const beakX = isLurker ? hw * 0.4 : hw * 0.45;
-		const beakY = isLurker ? 18 : headY - 2;
-		f.poly([beakX, beakY, beakX + 4, beakY + 1, beakX, beakY + 3]).fill({
-			color: 0xe8b840,
-			alpha: 0.7,
-		});
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawCrabCrawler(accent);
+		if (kind === "bat") return drawSeagullBat(accent);
+		if (kind === "lurker") return drawBarnacleLurker(accent);
+		return null;
 	},
 };

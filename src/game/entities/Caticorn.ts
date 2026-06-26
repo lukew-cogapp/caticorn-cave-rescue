@@ -12,6 +12,7 @@ import {
 	CATICORN_SCALE,
 	RESCUE_FLOAT_SPEED,
 } from "../const";
+import type { ThemeStyle } from "../level/themes";
 import type { CaticornSpec, WorldContext } from "../types";
 import { Entity } from "./Entity";
 
@@ -56,10 +57,13 @@ export class Caticorn extends Entity {
 	 * happy redraw so a caticorn keeps its colour when freed.
 	 */
 	private readonly paletteIndex: number;
+	/** Cave theme — drives the captive look (e.g. tropical = blue alien). */
+	private readonly style?: ThemeStyle;
 
-	constructor(spec: CaticornSpec, accent?: string) {
+	constructor(spec: CaticornSpec, accent?: string, style?: ThemeStyle) {
 		super(new Container(), { x: spec.x, y: spec.y });
 		this.containment = spec.containment;
+		this.style = style;
 		// Caged captives get a taller box (covers the cage) so a stomp on the
 		// cage roof registers; shackled ones keep the small caticorn box.
 		this.height = spec.containment === "cage" ? 52 : 30;
@@ -72,7 +76,7 @@ export class Caticorn extends Entity {
 		const h = Math.floor(spec.x) * 2654435761;
 		this.paletteIndex = (h >>> 3) % CATICORN_PALETTE_COUNT;
 
-		this.cat = drawCaticorn(false, this.paletteIndex);
+		this.cat = drawCaticorn(false, this.paletteIndex, this.style);
 		this.cat.scale.set(CATICORN_SCALE);
 		this.view.addChild(this.cat);
 
@@ -83,8 +87,12 @@ export class Caticorn extends Entity {
 	}
 
 	/** Build a Caticorn from a spec, tinting its binding toward the cave accent. */
-	static create(spec: CaticornSpec, accent?: string): Caticorn {
-		return new Caticorn(spec, accent);
+	static create(
+		spec: CaticornSpec,
+		accent?: string,
+		style?: ThemeStyle,
+	): Caticorn {
+		return new Caticorn(spec, accent, style);
 	}
 
 	update(ctx: WorldContext): void {
@@ -121,7 +129,7 @@ export class Caticorn extends Entity {
 		for (const child of this.cat.removeChildren()) {
 			child.destroy();
 		}
-		const happy = drawCaticorn(true, this.paletteIndex);
+		const happy = drawCaticorn(true, this.paletteIndex, this.style);
 		this.cat.addChild(...happy.removeChildren());
 		// Break the binding: it fades out over the next moments.
 		if (this.binding) {

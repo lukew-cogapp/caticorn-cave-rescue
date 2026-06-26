@@ -1,4 +1,9 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawCandyCaneLurker,
+	drawGingerbreadCrawler,
+	drawGumdropBat,
+} from "../../art/themes/candy/monsters";
 import { tint, wobble } from "../../art/util";
 import { GAME_HEIGHT } from "../../types";
 import type { FloorTones, PlatformTones, Rng, ThemePack } from "../theme-pack";
@@ -286,7 +291,30 @@ export const candyPack: ThemePack = {
 	},
 
 	// -------------------------------------------------------------------------
+	// Monster reskins: gingerbread man, gumdrop bat, candy-cane lurker.
+	// -------------------------------------------------------------------------
+	/**
+	 * Full per-kind monster reskins for Gumdrop Grotto:
+	 *   - crawler  → gingerbread man (chocolate body, icing trim, candy-button eyes)
+	 *   - bat      → winged gumdrop / wrapped-sweet critter (pastel dome + wrapper wings)
+	 *   - lurker   → candy cane clinging from the ceiling, grown downward from y=0
+	 *
+	 * All keep the base gameplay footprint and origin conventions. Deterministic —
+	 * no `Math.random`. When this hook fires, `monsterFlourish` is skipped entirely.
+	 */
+	monsterSkin(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawGingerbreadCrawler(accent);
+		if (kind === "bat") return drawGumdropBat(accent);
+		if (kind === "lurker") return drawCandyCaneLurker(accent);
+		return null;
+	},
+
+	// -------------------------------------------------------------------------
 	// Monster flourish: a candy-shell glaze sheen + scattered sprinkle dots.
+	// (Only runs when monsterSkin returns null for a kind — currently unused.)
 	// -------------------------------------------------------------------------
 	monsterFlourish(
 		_c: Container,

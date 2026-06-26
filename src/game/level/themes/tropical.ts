@@ -1,4 +1,9 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawCoconutLurker,
+	drawCrabCrawler,
+	drawParrotBat,
+} from "../../art/themes/tropical/monsters";
 import { tint, wobble } from "../../art/util";
 import { GAME_HEIGHT } from "../../types";
 import type { FloorTones, PlatformTones, Rng, ThemePack } from "../theme-pack";
@@ -342,5 +347,25 @@ export const tropicalPack: ThemePack = {
 				alpha: 0.4,
 			});
 		}
+	},
+
+	/**
+	 * Full per-kind monster reskins for the Lagoon Hideaway:
+	 *   - crawler → scuttling crab (round coral shell, eye-stalks, pincers, legs)
+	 *   - bat     → bright parrot/bird (teal + golden wings, beak, tail feathers)
+	 *   - lurker  → coconut vine-critter (hairy husk, three pore-eyes, tendril arms)
+	 *
+	 * All three keep the base gameplay footprint and origin conventions so existing
+	 * aabb, stomp and poop-drop logic still feels right. Deterministic — no
+	 * `Math.random`. When this hook fires, `monsterFlourish` is skipped entirely.
+	 */
+	monsterSkin(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawCrabCrawler(accent);
+		if (kind === "bat") return drawParrotBat(accent);
+		if (kind === "lurker") return drawCoconutLurker(accent);
+		return null;
 	},
 };

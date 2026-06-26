@@ -1,4 +1,9 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawGhostBat,
+	drawJackOLanternCrawler,
+	drawSpiderLurker,
+} from "../../art/themes/halloween/monsters";
 import { tint, wobble } from "../../art/util";
 import { GAME_HEIGHT } from "../../types";
 import type { FloorTones, PlatformTones, Rng, ThemePack } from "../theme-pack";
@@ -441,6 +446,26 @@ export const halloweenPack: ThemePack = {
 
 		// Suppress "unused" lint warning — spanW used for optional future guard.
 		void spanW;
+	},
+
+	/**
+	 * Full per-kind monster reskins for Pumpkin Hollow:
+	 *   - crawler → walking jack-o'-lantern (orange pumpkin body, carved face, stem + legs)
+	 *   - bat     → floaty ghost (white wavy sheet, big dark eyes)
+	 *   - lurker  → hanging spider on a silk thread, drawn DOWNWARD from y=0
+	 *
+	 * All three keep the base gameplay footprint and origin conventions so existing
+	 * aabb, stomp and poop-drop logic still feels right. Deterministic — no
+	 * `Math.random`. When this hook fires, `monsterFlourish` is skipped entirely.
+	 */
+	monsterSkin(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawJackOLanternCrawler(accent);
+		if (kind === "bat") return drawGhostBat(accent);
+		if (kind === "lurker") return drawSpiderLurker(accent);
+		return null;
 	},
 
 	monsterFlourish(

@@ -1,4 +1,5 @@
 import { Container, Graphics } from "pixi.js";
+import type { ThemeStyle } from "../level/themes";
 import { EN } from "../strings/en";
 import { tintStr } from "./util";
 
@@ -166,6 +167,8 @@ function buildCaticorn(opts: {
 	bigHair?: boolean;
 	/** Horn colour (per character). Defaults to gold. */
 	horn?: string;
+	/** Draw big floppy koala-alien ears (the tropical "Stitch" captive look). */
+	alien?: boolean;
 }): Container {
 	const c = new Container();
 	const g = new Graphics();
@@ -209,11 +212,22 @@ function buildCaticorn(opts: {
 	// Head.
 	g.circle(0, -40, 14).fill(opts.body);
 
-	// Ears (cat triangles) with pink inner ear.
-	g.poly([-13, -48, -6, -56, -3, -46]).fill(opts.body);
-	g.poly([13, -48, 6, -56, 3, -46]).fill(opts.body);
-	g.poly([-10, -49, -6, -54, -5, -48]).fill("#ff9ec4");
-	g.poly([10, -49, 6, -54, 5, -48]).fill("#ff9ec4");
+	if (opts.alien) {
+		// Big floppy koala-alien ears (rounded, swept down the sides) instead of
+		// the cat triangles — the blue-alien look. Inner ear in a soft pink.
+		g.ellipse(-14, -46, 6, 9).fill(opts.body);
+		g.ellipse(14, -46, 6, 9).fill(opts.body);
+		g.ellipse(-14, -45, 3, 5.5).fill("#ff9ec4");
+		g.ellipse(14, -45, 3, 5.5).fill("#ff9ec4");
+		// A little tuft of head fur between the ears.
+		g.poly([-3, -52, 0, -58, 3, -52]).fill(opts.bodyDark);
+	} else {
+		// Ears (cat triangles) with pink inner ear.
+		g.poly([-13, -48, -6, -56, -3, -46]).fill(opts.body);
+		g.poly([13, -48, 6, -56, 3, -46]).fill(opts.body);
+		g.poly([-10, -49, -6, -54, -5, -48]).fill("#ff9ec4");
+		g.poly([10, -49, 6, -54, 5, -48]).fill("#ff9ec4");
+	}
 
 	// Mane: a few coloured strands framing the face/neck.
 	const maneStrands: [number, number, number][] = [
@@ -480,7 +494,44 @@ export const CATICORN_PALETTE_COUNT = CATICORN_PALETTES.length;
  * @param paletteIndex - Index into the palette pool (defaults to 0; wraps).
  * @returns A Pixi {@link Container} ready to position at a world point.
  */
-export function drawCaticorn(happy = false, paletteIndex = 0): Container {
+export function drawCaticorn(
+	happy = false,
+	paletteIndex = 0,
+	style?: ThemeStyle,
+): Container {
+	// Tropical caves render captives as the blue koala-alien (with the caticorn
+	// horn kept) — a fun "Stitch"-flavoured rescue. A small blue palette family,
+	// varied per captive via the palette index.
+	if (style === "tropical") {
+		const blues: CaticornPalette[] = [
+			{
+				body: "#5aa9ff",
+				bodyDark: "#3f7fd0",
+				mane: ["#bfe2ff", "#eaf6ff", "#2f6fd0"],
+			},
+			{
+				body: "#4f8fe6",
+				bodyDark: "#3768b0",
+				mane: ["#9fd0ff", "#dff0ff", "#2a5db0"],
+			},
+			{
+				body: "#6cb6ff",
+				bodyDark: "#4a8ad8",
+				mane: ["#cdebff", "#f0faff", "#3a7fd0"],
+			},
+		];
+		const b = blues[paletteIndex % blues.length];
+		return buildCaticorn({
+			body: b.body,
+			bodyDark: b.bodyDark,
+			ear: b.body,
+			mane: b.mane,
+			sad: !happy,
+			alien: true,
+			// Keep a bright caticorn horn so it's still a caticorn.
+			horn: "#ffd23f",
+		});
+	}
 	const p = CATICORN_PALETTES[paletteIndex % CATICORN_PALETTES.length];
 	return buildCaticorn({
 		body: p.body,

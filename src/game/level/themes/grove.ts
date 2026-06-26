@@ -1,4 +1,9 @@
 import type { Container, Graphics } from "pixi.js";
+import {
+	drawLeafBat,
+	drawMushroomCrawler,
+	drawSporePodLurker,
+} from "../../art/themes/grove/monsters";
 import { tint, wobble } from "../../art/util";
 import { GROVE_BOUNCE_MIN_SPEED, GROVE_BOUNCE_VELOCITY } from "../../const";
 import { GAME_HEIGHT } from "../../types";
@@ -259,5 +264,27 @@ export const grovePack: ThemePack = {
 				alpha: 0.85,
 			});
 		}
+	},
+
+	/**
+	 * Full per-kind monster reskins for the Mushroom Grove:
+	 *   - crawler → walking mushroom creature (domed spotted cap, stubby legs,
+	 *               eyes under the cap rim — head on top for clear stomp read)
+	 *   - bat     → flitting leaf/seed-pod (two leaf wings, pod body, vein detail)
+	 *   - lurker  → hanging spore-pod fungus cluster (grown DOWNWARD from y=0,
+	 *               bioluminescent spots, root tendrils, eyes at y=16)
+	 *
+	 * All three keep the base gameplay footprint and origin conventions. When this
+	 * hook fires, `monsterFlourish` is skipped entirely. Deterministic — no
+	 * `Math.random`.
+	 */
+	monsterSkin(
+		kind: "crawler" | "bat" | "lurker",
+		accent: string | undefined,
+	): Container | null {
+		if (kind === "crawler") return drawMushroomCrawler(accent);
+		if (kind === "bat") return drawLeafBat(accent);
+		if (kind === "lurker") return drawSporePodLurker(accent);
+		return null;
 	},
 };
