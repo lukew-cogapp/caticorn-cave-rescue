@@ -417,16 +417,32 @@ if (isTouch) {
 			on(ev: string, cb: (...args: unknown[]) => void): void;
 		}
 	).on.bind(manager);
-	// Map stick movement to a digital left/right. Using the live vector each
-	// move means dragging further only sustains the direction, never stops it.
+	// Map stick movement to a digital left/right. nipplejs's move payload varies
+	// by version, so read the horizontal component defensively: prefer
+	// `vector.x` (−1..1), fall back to the angle (`angle.radian`) or a
+	// `direction.x` string. Using the live value each move means dragging further
+	// only sustains the direction, never stops it.
 	on("move", (...args: unknown[]) => {
-		const data = args[1] as { vector?: { x: number; y: number } };
-		const x = data?.vector?.x ?? 0;
-		if (x <= -0.4) setDir("ArrowLeft");
-		else if (x >= 0.4) setDir("ArrowRight");
+		const data = args[1] as {
+			vector?: { x: number; y: number };
+			angle?: { radian?: number };
+			direction?: { x?: string };
+		};
+		let x = data?.vector?.x;
+		if (x === undefined && typeof data?.angle?.radian === "number") {
+			x = Math.cos(data.angle.radian);
+		}
+		if (x === undefined && data?.direction?.x) {
+			x = data.direction.x === "left" ? -1 : 1;
+		}
+		x ??= 0;
+		if (x <= -0.3) setDir("ArrowLeft");
+		else if (x >= 0.3) setDir("ArrowRight");
 		else setDir(null);
 	});
 	on("end", () => setDir(null));
+	on("dir:left", () => setDir("ArrowLeft"));
+	on("dir:right", () => setDir("ArrowRight"));
 }
 
 // Jump zone: any touch on the right half holds jump until released.

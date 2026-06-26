@@ -96,6 +96,7 @@ export const EN = {
 		quinn: "Quinn",
 		summer: "Summer",
 		hallie: "Hallie",
+		ruth: "Ruth",
 	} as Record<string, string>,
 
 	/** Level display names (keyed by internal level name). */

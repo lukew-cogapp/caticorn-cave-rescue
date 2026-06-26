@@ -169,6 +169,8 @@ function buildCaticorn(opts: {
 	horn?: string;
 	/** Draw big floppy koala-alien ears (the tropical "Stitch" captive look). */
 	alien?: boolean;
+	/** Draw clear round glasses over the eyes (Ruth). */
+	glasses?: boolean;
 }): Container {
 	const c = new Container();
 	const g = new Graphics();
@@ -302,6 +304,18 @@ function buildCaticorn(opts: {
 	// Nose.
 	g.poly([-2, -37, 2, -37, 0, -35]).fill("#ff5d8f");
 
+	// Optional clear round glasses over the eyes (Ruth). Pale near-clear lenses
+	// with a thin warm rim + a bridge, sitting on the two eyes at y≈-41.
+	if (opts.glasses) {
+		g.circle(-5, -41, 4.5).fill({ color: 0xffffff, alpha: 0.16 });
+		g.circle(5, -41, 4.5).fill({ color: 0xffffff, alpha: 0.16 });
+		g.circle(-5, -41, 4.5).stroke({ color: 0xe7d6a0, width: 1.4 });
+		g.circle(5, -41, 4.5).stroke({ color: 0xe7d6a0, width: 1.4 });
+		g.moveTo(-0.6, -41)
+			.lineTo(0.6, -41)
+			.stroke({ color: 0xe7d6a0, width: 1.4, cap: "round" });
+	}
+
 	// Optional little hat above/between the ears (drawn last so it sits on top).
 	if (opts.hat && opts.hat !== "none") {
 		addHat(g, opts.hat);
@@ -312,7 +326,7 @@ function buildCaticorn(opts: {
 }
 
 /** Selectable hero caticorn identity. */
-export type PlayerVariant = "aubrey" | "quinn" | "summer" | "hallie";
+export type PlayerVariant = "aubrey" | "quinn" | "summer" | "hallie" | "ruth";
 
 /** Per-variant palette + optional outfit for the hero caticorn. */
 const PLAYER_PALETTES: Record<
@@ -329,6 +343,8 @@ const PLAYER_PALETTES: Record<
 		bigHair?: boolean;
 		/** Horn colour, distinct per hero. */
 		horn: string;
+		/** Draw clear round glasses over the eyes. */
+		glasses?: boolean;
 	}
 > = {
 	aubrey: {
@@ -365,6 +381,18 @@ const PLAYER_PALETTES: Record<
 		hat: "crystal",
 		horn: "#c9a6ff",
 	},
+	// Ruth: strawberry-blonde caticorn with a layered fringe (big hair), clear
+	// round glasses, and a denim-blue shirt.
+	ruth: {
+		body: "#f0d9b8",
+		bodyDark: "#d6bc94",
+		mane: ["#d9a05a", "#c98a44", "#e8c188", "#b87636"],
+		shirt: "#8fb6d8",
+		hat: "none",
+		bigHair: true,
+		horn: "#ffd23f",
+		glasses: true,
+	},
 };
 
 /**
@@ -389,6 +417,7 @@ export const CHARACTERS: { id: PlayerVariant; name: string; color: string }[] =
 			color: PLAYER_PALETTES.summer.mane[0],
 		},
 		{ id: "hallie", name: EN.characters.hallie, color: "#c9c2d6" },
+		{ id: "ruth", name: EN.characters.ruth, color: "#d9a05a" },
 	];
 
 /**
@@ -415,6 +444,7 @@ export function drawPlayer(variant: PlayerVariant): Container {
 		hat: p.hat,
 		bigHair: p.bigHair,
 		horn: p.horn,
+		glasses: p.glasses,
 	});
 }
 
